@@ -190,7 +190,11 @@
   - [x] Add `npm run package:vsix` for repeatable VSIX creation
   - [x] Add first `CHANGELOG.md` entry for `0.1.0`
   - [x] Keep generated `.vsix` files out of git
-  - [ ] Create the first GitHub Release page and upload the `.vsix` asset
+  - [x] Create the first GitHub Release page and upload the `.vsix` asset
+  - [x] Publish `v0.1.0` as a GitHub pre-release
+
+- [x] **Project transparency**
+  - [x] Add README note that AI assistance was used during project development
 
 - [ ] **Performance**
   - [ ] Lazy loading for large files

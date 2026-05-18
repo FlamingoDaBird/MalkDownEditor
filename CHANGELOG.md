@@ -14,3 +14,5 @@ First packaged preview release.
 - Selection toolbar hover labels, quote action, and code block action.
 - Code block language/copy visibility settings.
 - Session-local read-only mode with title-bar lock toggle.
+- GitHub pre-release with installable VSIX asset.
+- Project documentation includes an AI assistance disclosure.

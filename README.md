@@ -2,6 +2,10 @@
 
 A WYSIWYG Markdown editor for VS Code built on [Milkdown](https://milkdown.dev/) and its batteries-included [Crepe editor](https://milkdown.dev/docs/guide/using-crepe).
 
+## AI Assistance
+
+AI tools, including OpenAI Codex, have been used as development assistants in this project for implementation support, documentation updates, code review-style reasoning, and release preparation. Project direction, testing decisions, and release publishing are maintained by the project owner.
+
 ## Editor Engine
 
 This extension uses [Milkdown](https://milkdown.dev/), a ProseMirror-based WYSIWYG Markdown editor framework. The rich editor surface is powered by [Milkdown Crepe](https://milkdown.dev/docs/api/crepe), which provides the toolbar, slash menu, tables, image blocks, link tooling, and other editing UI pieces used here.
@@ -109,6 +113,11 @@ Click the "MD Editor" button again to toggle back to the raw Markdown editor.
 ## Packaging and Releases
 
 The installable VS Code extension file is a `.vsix` file.
+
+The first packaged preview release is published as a GitHub pre-release:
+
+- [v0.1.0 release](https://github.com/FlamingoDaBird/MalkDownEditor/releases/tag/v0.1.0)
+- Installable asset: `md-editor-0.1.0.vsix`
 
 ```bash
 npm run typecheck
@@ -219,6 +228,8 @@ Supported format tokens include `yyyy`, `yy`, `MM`, `M`, `dd`, `d`, `HH`, `H`, `
 - ✅ Editor title gear and context-menu shortcuts to MD Editor settings
 - ✅ Editor title read-only toggle with open/closed padlock state and fixed `READ ONLY` badge
 - ✅ VSIX packaging script and first `0.1.0` changelog
+- ✅ GitHub pre-release `v0.1.0` published with installable VSIX asset
+- ✅ AI assistance disclosure added to project documentation
 
 ## Troubleshooting
 

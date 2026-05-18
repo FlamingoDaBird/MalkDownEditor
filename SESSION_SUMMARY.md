@@ -266,6 +266,9 @@ Release packaging checkpoint:
 - Added `*.vsix` to `.gitignore` so release artifacts stay out of normal commits.
 - Tightened `.vscodeignore` so packaged VSIX files exclude development files and source maps.
 - Created local VSIX package: `md-editor-0.1.0.vsix`.
+- Published GitHub pre-release: `https://github.com/FlamingoDaBird/MalkDownEditor/releases/tag/v0.1.0`
+- Uploaded the installable VSIX asset to the GitHub release.
+- Added README disclosure that AI assistance was used during project development.
 
 Remaining polish:
 
@@ -304,9 +307,9 @@ When resuming after reboot, start here:
    - `npm run build`
    - `npm run package:vsix` before creating a GitHub release
 6. Keep `SHOWCASE.md` and `tests/fixtures/test.md` synchronized. Use either for manual smoke testing in the Extension Development Host.
-7. Latest docs/status checkpoint was saved on `2026-05-19 00:35`.
+7. Latest docs/status checkpoint was saved on `2026-05-19` after publishing the first GitHub pre-release.
 
-Current git note: `main` tracks `origin/main`. The first code commit has been pushed. Release-prep docs/package metadata changes are local until committed and pushed.
+Current git note: `main` tracks `origin/main`. The initial code commit, release-prep commit, and final documentation/status checkpoint have been committed and pushed.
 
 ---
 

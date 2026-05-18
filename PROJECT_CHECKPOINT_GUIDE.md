@@ -17,6 +17,12 @@
 - [ ] Search & replace
 - [x] Version conflict handling
 
+### Release & Project Status
+- [x] GitHub repository pushed
+- [x] First VSIX package created
+- [x] `v0.1.0` GitHub pre-release published
+- [x] AI assistance disclosure documented
+
 ## When to Save
 
 After completing each milestone, or if you notice either of us:
