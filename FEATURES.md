@@ -185,6 +185,13 @@
   - [ ] Further code block enhancements
   - [ ] Diagram rendering (Mermaid, PlantUML)
 
+- [x] **Release packaging**
+  - [x] Add GitHub repository metadata to `package.json`
+  - [x] Add `npm run package:vsix` for repeatable VSIX creation
+  - [x] Add first `CHANGELOG.md` entry for `0.1.0`
+  - [x] Keep generated `.vsix` files out of git
+  - [ ] Create the first GitHub Release page and upload the `.vsix` asset
+
 - [ ] **Performance**
   - [ ] Lazy loading for large files
   - [ ] Optimize rendering pipeline

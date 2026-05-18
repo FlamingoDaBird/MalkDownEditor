@@ -106,6 +106,35 @@ Use the padlock icon beside the MD Editor title actions to toggle read-only mode
 ### Switching Back
 Click the "MD Editor" button again to toggle back to the raw Markdown editor.
 
+## Packaging and Releases
+
+The installable VS Code extension file is a `.vsix` file.
+
+```bash
+npm run typecheck
+npm run package:vsix
+```
+
+That creates a versioned package such as `md-editor-0.1.0.vsix` in the repository root.
+
+To test the packaged extension locally:
+
+```bash
+code --install-extension md-editor-0.1.0.vsix
+```
+
+For a GitHub release:
+
+1. Create and push a version tag, for example `git tag v0.1.0 && git push origin v0.1.0`.
+2. In GitHub, open Releases, draft a new release from that tag, and upload the `.vsix` file as a release asset.
+3. Use `CHANGELOG.md` as the release notes source.
+
+If the GitHub CLI is installed and authenticated, the release can also be created with:
+
+```bash
+gh release create v0.1.0 md-editor-0.1.0.vsix --title "MD Editor 0.1.0" --notes-file CHANGELOG.md
+```
+
 ## Settings
 
 MD Editor settings are grouped under `mdEditor.*`.
@@ -189,6 +218,7 @@ Supported format tokens include `yyyy`, `yy`, `MM`, `M`, `dd`, `d`, `HH`, `H`, `
 - ✅ `SHOWCASE.md` source-of-truth smoke document mirrored to `tests/fixtures/test.md`
 - ✅ Editor title gear and context-menu shortcuts to MD Editor settings
 - ✅ Editor title read-only toggle with open/closed padlock state and fixed `READ ONLY` badge
+- ✅ VSIX packaging script and first `0.1.0` changelog
 
 ## Troubleshooting
 
@@ -250,6 +280,7 @@ VS-CODE-Plugin-MD-Editor/
 ├── PROJECT_CHECKPOINT_GUIDE.md     # Session checkpoint guidance
 ├── SESSION_SUMMARY.md              # Current working state
 ├── SHOWCASE.md                     # Source-of-truth feature showcase / smoke document
+├── CHANGELOG.md                    # Release notes
 ├── esbuild.mjs                     # Extension and webview build script
 ├── package.json                    # VS Code extension manifest
 ├── package-lock.json               # Locked npm dependency graph

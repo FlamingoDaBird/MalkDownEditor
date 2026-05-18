@@ -3,6 +3,7 @@ dist/
 dist-types/
 out/
 .attachments/
+*.vsix
 
 *.log
 *.tmp

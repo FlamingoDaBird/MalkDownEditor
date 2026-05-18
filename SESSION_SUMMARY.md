@@ -255,6 +255,18 @@ Recent cleanup:
 - consolidated the host/webview protocol into `src/shared/protocol.ts`
 - changed the project license metadata and `LICENSE` file to Apache License 2.0
 
+Release packaging checkpoint:
+
+- GitHub remote: `git@github.com:FlamingoDaBird/MalkDownEditor.git`
+- First pushed branch: `main`
+- Initial commit on GitHub: `c5c22cc Initial MD Editor extension`
+- Added package repository metadata for GitHub README/LICENSE links.
+- Added `npm run package:vsix`.
+- Added `CHANGELOG.md` with the `0.1.0` preview release notes.
+- Added `*.vsix` to `.gitignore` so release artifacts stay out of normal commits.
+- Tightened `.vscodeignore` so packaged VSIX files exclude development files and source maps.
+- Created local VSIX package: `md-editor-0.1.0.vsix`.
+
 Remaining polish:
 
 - Manually smoke-test Date & Time slash menu and command palette actions in the Extension Development Host.
@@ -290,10 +302,11 @@ When resuming after reboot, start here:
    - `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json ok')"` when `package.json` changes
    - `npm run typecheck`
    - `npm run build`
+   - `npm run package:vsix` before creating a GitHub release
 6. Keep `SHOWCASE.md` and `tests/fixtures/test.md` synchronized. Use either for manual smoke testing in the Extension Development Host.
-7. Latest docs/status checkpoint was saved on `2026-05-19 00:20`.
+7. Latest docs/status checkpoint was saved on `2026-05-19 00:35`.
 
-Current git note: the repository has no tracked files yet, so all project files appear as untracked. `dist/` and `node_modules/` are ignored.
+Current git note: `main` tracks `origin/main`. The first code commit has been pushed. Release-prep docs/package metadata changes are local until committed and pushed.
 
 ---
 
@@ -302,6 +315,7 @@ Current git note: the repository has no tracked files yet, so all project files 
 ```bash
 npm run typecheck
 npm run build
+npm run package:vsix
 npm run watch
 ```
 
@@ -318,6 +332,7 @@ src/shared/protocol.ts        # Extension ↔ webview message protocol
 src/utils/markdown-parser.ts  # Lightweight heading extraction
 tests/fixtures/test.md        # Manual smoke-test Markdown document
 package.json                  # Contributions, commands, settings
+CHANGELOG.md                  # Release notes
 LICENSE                       # Apache License 2.0
 FEATURES.md                   # Roadmap
 ```

@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "publisher": "flamingo",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FlamingoDaBird/MalkDownEditor.git"
+  },
   "license": "Apache-2.0",
   "engines": {
     "vscode": "^1.85.0"
@@ -355,6 +359,7 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.webview.json --noEmit",
+    "package:vsix": "npx --yes @vscode/vsce package",
     "vscode:prepublish": "npm run build"
   },
   "devDependencies": {
