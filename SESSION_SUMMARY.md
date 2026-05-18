@@ -1,0 +1,323 @@
+# Session Summary: VS Code Markdown WYSIWYG Editor
+
+## Status: 🟢 MVP editor working
+
+**Last Modified**: 2026-05-19  
+**Current Focus**: Next-session smoke testing and UI polish
+
+**Latest Verification**:
+
+- `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json ok')"`
+- `npm run typecheck`
+- `npm run build`
+- `cmp -s SHOWCASE.md tests/fixtures/test.md && echo synced`
+
+---
+
+## ✅ Recently Resolved
+
+### Blank Webview / `renderSpec` Crash
+
+The editor previously failed with:
+
+```text
+RangeError: Invalid array passed to renderSpec
+```
+
+Root cause: Milkdown's LaTeX feature can return real DOM nodes from `toDOM`, while the bundled ProseMirror serializer expected array DOM specs. The webview now patches `DOMSerializer.renderSpec` to accept DOM nodes and sanitize malformed specs.
+
+Verified with:
+
+- `npm run typecheck`
+- `npm run build`
+- bundled webview smoke test against `tests/fixtures/test.md`, including inline and block math
+
+### MD Editor Button / View Toggle
+
+The `MD Editor` title-bar command now toggles:
+
+- raw Markdown text editor → Milkdown WYSIWYG editor
+- Milkdown WYSIWYG editor → raw Markdown text editor
+
+Implementation notes:
+
+- `package.json` contributes `mdeditor.open` to `editor/title`
+- `src/extension.ts` detects active `TabInputCustom` for `mdeditor.markdownEditor`
+- the status bar item also runs `mdeditor.open`
+
+### Console Noise
+
+Temporary startup debug logs were removed from the extension host and webview. Remaining MD Editor console output should be real warnings/errors only.
+
+### Editor Interaction Polish
+
+- Link remove/trash action in the URL preview tooltip is styled red.
+- Table row/column delete actions are styled red.
+- Slash/block insert menu supports `Tab` / `Shift+Tab` category navigation.
+- Slash/block insert menu category navigation wraps from last to first and first to last.
+- Floating selection toolbar now adds hover labels/ARIA labels for its symbols.
+- Floating selection toolbar now includes a Quote button that wraps selected block text in a Markdown blockquote.
+- Floating selection toolbar now includes a Code Block button that toggles selected block text between paragraph and fenced code block.
+- The sigma/sum toolbar symbol is the inline math/LaTeX toggle.
+- Code blocks now have `mdEditor.codeBlocks.alwaysShowLanguage` and `mdEditor.codeBlocks.alwaysShowCopyButton` settings, both defaulting to `true`.
+- Inline code now renders as a framed grey inline pill instead of only orange text. The orange came from Milkdown Crepe's inline-code theme variable, and the fix targets both `.ProseMirror code` and `.prose code`.
+- Crepe's `+` block handle and slash menu are forced to fixed viewport positioning because VS Code webviews scroll inside `#editor`; otherwise the menu can open off-screen after scrolling.
+- Fixed a runtime slash/block menu crash caused by chaining `addGroup` after `addItem`; Milkdown's group builder returns the current group from `addItem`, not the root builder. Custom Tables and Date & Time menu groups are now built as separate group variables.
+
+2026-05-19 checkpoint notes:
+
+- The floating toolbar is the small popup shown when selecting text.
+- The floating toolbar now has both Quote and Code Block block-level actions.
+- Code Block toggles selected/current block text between a normal paragraph and a fenced code block.
+- Code block language label and Copy button visibility are controlled by live `mdEditor.codeBlocks.*` settings and default to visible.
+- Read-only title action now uses an open padlock while editable and a closed padlock while read-only.
+
+### Read-Only Mode
+
+Implementation trail for retry/debug:
+
+1. Added `MD Editor: Toggle Read-Only Mode` command and state-aware editor-title open-lock/closed-lock actions.
+2. Added host/webview protocol message `setReadOnly`.
+3. The provider stores read-only state per document URI for the current extension session.
+4. The webview calls Milkdown Crepe `setReadonly(true | false)` to disable/enable editing.
+5. A fixed `READ ONLY` badge is rendered in the webview and remains visible while scrolling.
+6. Editing popups, table controls, table slash menus, and table insert dialogs are hidden while read-only mode is active.
+7. Date/time insertion, table actions, attachment upload, and outgoing edit messages are blocked while read-only mode is active.
+8. The block-handle `+` control is hidden while read-only mode is active, and pressing `/` shows a read-only toast instead of silently failing.
+9. The extension sets the `mdeditor.readOnly` context key from the active MD Editor document so the title action shows an open padlock while editable and a closed padlock while locked.
+
+### Table Editing Polish
+
+Standards note:
+
+- MD Editor aims to stay close to portable Markdown: CommonMark-style Markdown plus GitHub Flavored Markdown-style tables.
+- Milkdown's current GFM table schema uses paragraph content inside cells, so inline formatting is supported in cells, but headings, blockquotes, lists, nested tables, text color, and cell background color are not added as custom Markdown syntax.
+
+Implementation trail for retry/debug:
+
+1. Added shared table action handling in `src/webview/index.ts` using Milkdown/ProseMirror table commands.
+2. Added a floating table toolbar that appears when the cursor/selection is inside a table.
+3. Added toolbar actions for add row above/below, add column left/right, delete row, delete column, and delete table.
+4. Added a custom right-click table action menu with the same actions.
+5. Added a custom table-cell slash menu because Crepe's built-in slash menu does not reliably open from inside table cells.
+6. Added hover labels/ARIA labels to generated Milkdown table handles, add buttons, align buttons, and delete buttons.
+7. Updated `src/webview/styles/milkdown/table.css` so active add-row/add-column buttons are more visible.
+8. Kept destructive table actions red across built-in handles, the floating toolbar, and the context menu.
+9. Added `mdEditor.tables.*` settings for the floating toolbar, right-click menu, default Milkdown controls, and table-cell slash menu.
+10. Table settings are sent on editor init and updated live when VS Code configuration changes.
+11. Replaced Crepe's default 3x3 table insert menu item with MD Editor's configurable insert flow.
+12. Added `mdEditor.tables.defaultRows`, `mdEditor.tables.defaultColumns`, and `mdEditor.tables.insertBehavior`.
+13. Added `Insert Custom Table`, which opens a compact row/column picker with plus/minus controls.
+14. Hid the Quote selection-toolbar action while the current selection is inside a table cell, because blockquotes are not supported cell content.
+
+Table settings default to enabled:
+
+- `mdEditor.tables.floatingToolbar`
+- `mdEditor.tables.contextMenu`
+- `mdEditor.tables.milkdownControls`
+- `mdEditor.tables.slashMenu`
+- `mdEditor.tables.defaultRows` (`3`)
+- `mdEditor.tables.defaultColumns` (`3`)
+- `mdEditor.tables.insertBehavior` (`useDefaultSize`)
+
+The table-cell slash menu intentionally opens only when `/` is the first character in the current table cell text block. This avoids surprise menus when writing normal text, URLs, or filesystem paths.
+
+Future task added: collapsible details / dropdown sections. The portable route is likely raw HTML `<details><summary>...</summary>...</details>` because nested dropdown sections are not native CommonMark block syntax; a richer Milkdown custom node would need careful round-trip behavior before implementation.
+
+### README / Naming Notes
+
+- `README.md` now explicitly credits Milkdown and Milkdown Crepe with upstream docs/API/GitHub links.
+- Extension naming is tracked as a future task in `FEATURES.md`.
+- Candidate names include `MilkMark`, `Crepe Markdown`, `Markflow`, `Markdown Studio`, `MellowMark`, `MD Canvas`, `WysiMark`, `Fluent Markdown`, `MalkMark`, `MalkDown`, and `MilkDown`.
+
+### Date & Time Tools
+
+- Added slash menu `Date & Time` category.
+- Added command palette actions:
+  - `MD Editor: Insert Today's Date`
+  - `MD Editor: Insert Current Time`
+  - `MD Editor: Insert Date and Time`
+  - `MD Editor: Insert Last Updated`
+  - `MD Editor: Update Last Updated Line`
+  - `MD Editor: Insert History Entry`
+  - `MD Editor: Insert Custom Date/Time Snippet`
+- Added settings:
+  - `mdEditor.dateTime.dateFormat`
+  - `mdEditor.dateTime.timeFormat`
+  - `mdEditor.dateTime.lastUpdatedTemplate`
+  - `mdEditor.dateTime.historyEntryTemplate`
+  - `mdEditor.dateTime.customTemplate`
+  - `mdEditor.dateTime.inlineSlashShortcuts`
+- Supported template placeholders: `{date}`, `{time}`, `{datetime}`.
+- Supported format tokens include `yyyy`, `yy`, `MM`, `M`, `dd`, `d`, `HH`, `H`, `hh`, `h`, `mm`, `ss`, and `a`.
+- `Update Last Updated Line` updates the current text block when it looks like a Last Updated line; otherwise it inserts a fresh Last Updated snippet.
+- Slash menu Date & Time actions delete only the active slash query token before inserting, so `/d`, `/da`, or `/date` do not remain in the document.
+- Added lightweight inline shortcuts accepted with `Tab` or `Enter`: `/date`, `/time`, `/datetime`, `/updated`, and `/history`.
+- Inline shortcuts are guarded so they do not trigger inside words, URLs, or filesystem-like paths.
+
+### Settings Access
+
+- Added `MD Editor: Open Settings`, which opens VS Code settings filtered to `mdEditor`.
+- Added the settings command directly to the Markdown editor title action area, beside the MD Editor toggle icon, scoped to `activeCustomEditorId == 'mdeditor.markdownEditor'`.
+- Added the settings command to the Markdown editor title context menu (`editor/title/context`) so it is available from the right-click menu around the editor title / MD Editor title icon area.
+
+### Showcase Smoke Document
+
+- Added `SHOWCASE.md` as the source-of-truth feature showcase / manual smoke document.
+- Mirrored `SHOWCASE.md` into `tests/fixtures/test.md` so the existing fixture path still works.
+- The showcase includes visible Date & Time examples for `2026-05-18 16:04`.
+- The showcase documents the inline date/time slash shortcuts and the path/URL guard behavior.
+- The showcase now documents the read-only padlock state and code block visibility settings.
+
+---
+
+## Current Image/Attachment State
+
+Milkdown Crepe image upload support now routes through the extension host. Uploaded images are persisted to disk and Milkdown receives a Markdown-relative path.
+
+Implemented behavior:
+
+- uploaded images are written with `vscode.workspace.fs`
+- saved Markdown uses relative paths
+- local image preview uses a webview URI resolver
+- existing files are not overwritten
+- generated names scan the target attachment folder and increment the highest matching number
+- first upload prompts when no attachment settings have been explicitly configured
+- removing a local attachment image from the MD editor asks whether to delete the file from disk too
+- the first-upload prompt now uses a short title plus a multi-line detail section
+- confirm/rename uploads now use one `Save Markdown Attachment` popup with buttons for folder selection, original filename, and generated filename
+- `ask-each-time` uploads also use the richer save popup instead of a folder-only prompt
+- successful and failed attachment saves show in-editor toast feedback
+
+---
+
+## Attachment Settings
+
+### Current Defaults
+
+On a fresh setup, the first attachment upload asks whether to open settings or persist the factory defaults. Choosing defaults writes the attachment settings so the prompt does not repeat.
+
+- save attachments next to the current Markdown file
+- use a sibling folder named `.attachments`
+- write Markdown links as relative paths
+- generate stable lower-case filenames using the Markdown filename plus a padded counter
+- ask before deleting unreferenced local attachment files from disk
+
+Example:
+
+```text
+FEATURES.md + png upload -> .attachments/features-000000001.png
+```
+
+### Available Settings
+
+- `mdEditor.attachments.locationMode`
+  - `markdown-folder-attachments`, `markdown-folder`, `workspace-relative-path`, or `ask-each-time`.
+- `mdEditor.attachments.folderName`
+  - Default: `.attachments`. Only used by `markdown-folder-attachments`.
+- `mdEditor.attachments.path`
+  - Workspace-relative path used by `workspace-relative-path` mode.
+- `mdEditor.attachments.alwaysUseOriginalFilename`
+  - Preserve the uploaded file's original filename when possible.
+- `mdEditor.attachments.alwaysConfirmNameAndPath`
+  - Prompt before saving and allow changing filename/path in one save popup.
+- `mdEditor.attachments.askBeforeDeletingFiles`
+  - Ask before deleting a local attachment file from disk when it is removed from the MD editor.
+- `mdEditor.attachments.generatedNameDigits`
+  - Default: `9`, producing `000000001`.
+
+### Naming Rules
+
+Generated filenames should:
+
+- use the current Markdown basename
+- remove `.md`
+- convert to lower case
+- normalize unsafe characters to `-`
+- scan the selected attachment directory for matching files
+- start at `000000001`
+- increment the highest existing number by `1`
+- preserve the uploaded file extension, lower-cased
+
+---
+
+## Project Structure Notes
+
+The high-level project layout is documented in `README.md`.
+
+Recent cleanup:
+
+- removed empty placeholder folders from the project root
+- moved the smoke-test document to `tests/fixtures/test.md`
+- added root `SHOWCASE.md` as the source-of-truth smoke document and copied it to `tests/fixtures/test.md`
+- removed unreferenced test attachment artifacts from the root `.attachments/` folder
+- updated `.gitignore` and `.vscodeignore`
+- consolidated the host/webview protocol into `src/shared/protocol.ts`
+- changed the project license metadata and `LICENSE` file to Apache License 2.0
+
+Remaining polish:
+
+- Manually smoke-test Date & Time slash menu and command palette actions in the Extension Development Host.
+- Decide on the final extension name before marketplace packaging.
+- Manually smoke-test the selection toolbar Quote and Code Block buttons in the Extension Development Host.
+- Manually smoke-test code block language label / Copy button visibility settings.
+- Manually smoke-test the read-only title action open/closed padlock state.
+- Manually smoke-test the slash menu and block `+` menu after the builder-chain fix.
+- Add image zoom/preview dialog.
+- Decide whether drag/drop and clipboard image paths need separate polish beyond Milkdown's upload hook.
+
+---
+
+## Resume Point
+
+When resuming after reboot, start here:
+
+1. Read `SESSION_SUMMARY.md`, `FEATURES.md`, and `README.md`.
+2. Smoke-test the interaction polish from the Extension Development Host:
+   - open/closed read-only padlock state in the editor title
+   - slash menu and block `+` menu open reliably
+   - slash menu `Tab` / `Shift+Tab` carousel
+   - selection toolbar hover labels, Quote action, and Code Block action
+   - code block language label and Copy button visibility settings
+   - red destructive remove/delete icons
+   - Date & Time slash menu and command palette actions
+3. Keep the existing attachment settings and defaults:
+   - default folder: `.attachments` next to the current Markdown file
+   - generated names: `<markdown-file>-000000001.<ext>`
+   - setting namespace: `mdEditor.attachments.*`
+4. Preserve the Apache License 2.0 metadata and `LICENSE` file.
+5. Verify code changes with:
+   - `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json ok')"` when `package.json` changes
+   - `npm run typecheck`
+   - `npm run build`
+6. Keep `SHOWCASE.md` and `tests/fixtures/test.md` synchronized. Use either for manual smoke testing in the Extension Development Host.
+7. Latest docs/status checkpoint was saved on `2026-05-19 00:20`.
+
+Current git note: the repository has no tracked files yet, so all project files appear as untracked. `dist/` and `node_modules/` are ignored.
+
+---
+
+## Useful Commands
+
+```bash
+npm run typecheck
+npm run build
+npm run watch
+```
+
+---
+
+## Files Of Interest
+
+```text
+src/extension.ts              # Command registration and editor toggle
+src/provider.ts               # Custom editor provider and host/webview messages
+src/attachments.ts            # Attachment save, naming, preview, and cleanup logic
+src/webview/index.ts          # Milkdown setup and serializer guard
+src/shared/protocol.ts        # Extension ↔ webview message protocol
+src/utils/markdown-parser.ts  # Lightweight heading extraction
+tests/fixtures/test.md        # Manual smoke-test Markdown document
+package.json                  # Contributions, commands, settings
+LICENSE                       # Apache License 2.0
+FEATURES.md                   # Roadmap
+```

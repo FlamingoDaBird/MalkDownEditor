@@ -1,0 +1,367 @@
+{
+  "name": "md-editor",
+  "displayName": "MD Editor",
+  "description": "WYSIWYG Markdown editor for VS Code using Milkdown Crepe.",
+  "version": "0.1.0",
+  "publisher": "flamingo",
+  "private": true,
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "markdown",
+    "wysiwyg",
+    "editor",
+    "milkdown"
+  ],
+  "activationEvents": [
+    "onCustomEditor:mdeditor.markdownEditor",
+    "onCommand:mdeditor.open",
+    "onCommand:mdeditor.insertDate",
+    "onCommand:mdeditor.insertTime",
+    "onCommand:mdeditor.insertDateTime",
+    "onCommand:mdeditor.insertLastUpdated",
+    "onCommand:mdeditor.updateLastUpdated",
+    "onCommand:mdeditor.insertHistoryEntry",
+    "onCommand:mdeditor.insertCustomDateTime",
+    "onCommand:mdeditor.openSettings",
+    "onCommand:mdeditor.toggleReadOnly",
+    "onCommand:mdeditor.enableReadOnly",
+    "onCommand:mdeditor.disableReadOnly"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "mdeditor.open",
+        "title": "MD Editor",
+        "category": "MD Editor",
+        "icon": "$(markdown)"
+      },
+      {
+        "command": "mdeditor.insertDate",
+        "title": "Insert Today's Date",
+        "category": "MD Editor"
+      },
+      {
+        "command": "mdeditor.insertTime",
+        "title": "Insert Current Time",
+        "category": "MD Editor"
+      },
+      {
+        "command": "mdeditor.insertDateTime",
+        "title": "Insert Date and Time",
+        "category": "MD Editor"
+      },
+      {
+        "command": "mdeditor.insertLastUpdated",
+        "title": "Insert Last Updated",
+        "category": "MD Editor"
+      },
+      {
+        "command": "mdeditor.updateLastUpdated",
+        "title": "Update Last Updated Line",
+        "category": "MD Editor"
+      },
+      {
+        "command": "mdeditor.insertHistoryEntry",
+        "title": "Insert History Entry",
+        "category": "MD Editor"
+      },
+      {
+        "command": "mdeditor.insertCustomDateTime",
+        "title": "Insert Custom Date/Time Snippet",
+        "category": "MD Editor"
+      },
+      {
+        "command": "mdeditor.openSettings",
+        "title": "Open Settings",
+        "category": "MD Editor",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "mdeditor.toggleReadOnly",
+        "title": "Toggle Read-Only Mode",
+        "category": "MD Editor",
+        "icon": "$(lock)"
+      },
+      {
+        "command": "mdeditor.enableReadOnly",
+        "title": "Enable Read-Only Mode",
+        "category": "MD Editor",
+        "icon": "$(unlock)"
+      },
+      {
+        "command": "mdeditor.disableReadOnly",
+        "title": "Disable Read-Only Mode",
+        "category": "MD Editor",
+        "icon": "$(lock)"
+      }
+    ],
+    "configuration": {
+      "title": "MD Editor",
+      "properties": {
+        "mdEditor.theme": {
+          "type": "string",
+          "enum": ["vscode-dark", "vscode-light", "vscode-high-contrast", "default"],
+          "default": "vscode-dark",
+          "markdownDescription": "Theme used by the MD Editor webview."
+        },
+        "mdEditor.attachments.locationMode": {
+          "type": "string",
+          "enum": [
+            "markdown-folder-attachments",
+            "markdown-folder",
+            "workspace-relative-path",
+            "ask-each-time"
+          ],
+          "enumDescriptions": [
+            "Save into a .attachments folder next to the Markdown file.",
+            "Save directly beside the Markdown file.",
+            "Save into a workspace-root relative folder.",
+            "Ask for a folder each time an attachment is uploaded."
+          ],
+          "default": "markdown-folder-attachments",
+          "markdownDescription": "Where MD Editor saves uploaded attachments."
+        },
+        "mdEditor.attachments.folderName": {
+          "type": "string",
+          "default": ".attachments",
+          "markdownDescription": "Folder name created beside the current Markdown file.\n\nOnly used when `Location Mode` is `markdown-folder-attachments`."
+        },
+        "mdEditor.attachments.path": {
+          "type": "string",
+          "default": "attachments",
+          "markdownDescription": "Workspace-relative folder for attachments.\n\nOnly used when `Location Mode` is `workspace-relative-path`. Do not use an absolute path like `/home/name/...`."
+        },
+        "mdEditor.attachments.alwaysUseOriginalFilename": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Use the uploaded file's original filename when saving attachments. Existing files are never overwritten."
+        },
+        "mdEditor.attachments.alwaysConfirmNameAndPath": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Ask for the attachment folder and filename before every attachment is saved."
+        },
+        "mdEditor.attachments.askBeforeDeletingFiles": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Ask before deleting a local attachment file from disk when its image reference is removed from the MD Editor."
+        },
+        "mdEditor.attachments.generatedNameDigits": {
+          "type": "number",
+          "default": 9,
+          "minimum": 1,
+          "maximum": 18,
+          "markdownDescription": "Number of digits in generated attachment filenames, for example `features-000000001.png`."
+        },
+        "mdEditor.tables.floatingToolbar": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show MD Editor's floating table toolbar when the cursor is inside a table."
+        },
+        "mdEditor.tables.contextMenu": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Enable MD Editor's right-click table action menu."
+        },
+        "mdEditor.tables.milkdownControls": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show Milkdown Crepe's default table handles and grid-line add controls."
+        },
+        "mdEditor.tables.slashMenu": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Enable MD Editor's table-cell slash menu. Type `/` as the first character in a table cell to add/delete rows or columns."
+        },
+        "mdEditor.tables.defaultRows": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 50,
+          "markdownDescription": "Default number of rows used when inserting a new GFM Markdown table."
+        },
+        "mdEditor.tables.defaultColumns": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 20,
+          "markdownDescription": "Default number of columns used when inserting a new GFM Markdown table."
+        },
+        "mdEditor.tables.insertBehavior": {
+          "type": "string",
+          "enum": ["useDefaultSize", "askEveryTime"],
+          "enumDescriptions": [
+            "Insert a table immediately using the configured default rows and columns.",
+            "Open a row/column picker every time Insert Table is selected."
+          ],
+          "default": "useDefaultSize",
+          "markdownDescription": "Controls whether Insert Table uses the configured default size or asks for rows and columns each time."
+        },
+        "mdEditor.codeBlocks.alwaysShowLanguage": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Always show the selected language label on code blocks instead of only showing it on hover."
+        },
+        "mdEditor.codeBlocks.alwaysShowCopyButton": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Always show the code block Copy button instead of only showing it on hover."
+        },
+        "mdEditor.dateTime.dateFormat": {
+          "type": "string",
+          "default": "yyyy-MM-dd",
+          "markdownDescription": "Date format used by MD Editor timestamp tools. Supported tokens include `yyyy`, `yy`, `MM`, `M`, `dd`, and `d`."
+        },
+        "mdEditor.dateTime.timeFormat": {
+          "type": "string",
+          "default": "HH:mm",
+          "markdownDescription": "Time format used by MD Editor timestamp tools. Supported tokens include `HH`, `H`, `hh`, `h`, `mm`, `ss`, and `a` for AM/PM."
+        },
+        "mdEditor.dateTime.lastUpdatedTemplate": {
+          "type": "string",
+          "default": "Last updated: {date} {time}",
+          "markdownDescription": "Template inserted or updated by the Last Updated timestamp actions. Available placeholders: `{date}`, `{time}`, `{datetime}`."
+        },
+        "mdEditor.dateTime.historyEntryTemplate": {
+          "type": "string",
+          "default": "- {date} {time} - ",
+          "markdownDescription": "Template inserted by the history entry timestamp action. Available placeholders: `{date}`, `{time}`, `{datetime}`."
+        },
+        "mdEditor.dateTime.customTemplate": {
+          "type": "string",
+          "default": "{date} {time}",
+          "markdownDescription": "Template inserted by the custom date/time snippet action. Available placeholders: `{date}`, `{time}`, `{datetime}`."
+        },
+        "mdEditor.dateTime.inlineSlashShortcuts": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Enable lightweight inline date/time shortcuts such as `/date`, `/time`, `/datetime`, `/updated`, and `/history`. Shortcuts are replaced only when accepted with `Tab` or `Enter` and are ignored inside URLs, paths, and words."
+        }
+      }
+    },
+    "customEditors": [
+      {
+        "viewType": "mdeditor.markdownEditor",
+        "displayName": "MD Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "mdeditor.open",
+          "when": "resourceExtname == .md",
+          "group": "navigation@10"
+        },
+        {
+          "command": "mdeditor.openSettings",
+          "when": "activeCustomEditorId == 'mdeditor.markdownEditor'",
+          "group": "navigation@11"
+        },
+        {
+          "command": "mdeditor.enableReadOnly",
+          "when": "activeCustomEditorId == 'mdeditor.markdownEditor' && !mdeditor.readOnly",
+          "group": "navigation@12"
+        },
+        {
+          "command": "mdeditor.disableReadOnly",
+          "when": "activeCustomEditorId == 'mdeditor.markdownEditor' && mdeditor.readOnly",
+          "group": "navigation@12"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "mdeditor.enableReadOnly",
+          "when": "resourceExtname == .md && !mdeditor.readOnly",
+          "group": "navigation@19"
+        },
+        {
+          "command": "mdeditor.disableReadOnly",
+          "when": "resourceExtname == .md && mdeditor.readOnly",
+          "group": "navigation@19"
+        },
+        {
+          "command": "mdeditor.openSettings",
+          "when": "resourceExtname == .md",
+          "group": "navigation@20"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "mdeditor.open",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "mdeditor.insertDate",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "mdeditor.insertTime",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "mdeditor.insertDateTime",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "mdeditor.insertLastUpdated",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "mdeditor.updateLastUpdated",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "mdeditor.insertHistoryEntry",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "mdeditor.insertCustomDateTime",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "mdeditor.openSettings",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "mdeditor.toggleReadOnly",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "mdeditor.enableReadOnly",
+          "when": "resourceExtname == .md && !mdeditor.readOnly"
+        },
+        {
+          "command": "mdeditor.disableReadOnly",
+          "when": "resourceExtname == .md && mdeditor.readOnly"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.webview.json --noEmit",
+    "vscode:prepublish": "npm run build"
+  },
+  "devDependencies": {
+    "@milkdown/crepe": "^7.20.0",
+    "@types/node": "^22.15.3",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.25.3",
+    "typescript": "^5.8.3"
+  }
+}

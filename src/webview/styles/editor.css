@@ -1,0 +1,379 @@
+:root {
+  /* VS Code Theme Variables (fallback values) */
+  --vscode-editor-background: #1e1e1e;
+  --vscode-editor-foreground: #d4d4d4;
+  --vscode-editorCursor-foreground: #aeafad;
+  --vscode-editor-selection: #264f78;
+  --vscode-editor-selection-background: #264f78;
+  --vscode-selection-foreground: #ffffff;
+  --vscode-scrollbarSlider-background: #424242;
+  --vscode-scrollbarSlider-hoverBackground: #505050;
+  --vscode-panel-background: #1e1e1e;
+  --vscode-panel-border: #424242;
+  --vscode-dropdown-background: #3c3c3c;
+  --vscode-dropdown-foreground: #cccccc;
+  --vscode-dropdown-border: #3c3c3c;
+  --vscode-button-background: #0e639c;
+  --vscode-button-foreground: #ffffff;
+  --vscode-avatar-background: #3c3c3c;
+  --vscode-gitDecoration-modifiedResourceForeground: #e2c08d;
+  --md-editor-selection-foreground: var(--vscode-selection-foreground);
+
+  /* MD Editor Custom Variables */
+  --md-editor-background: var(--vscode-editor-background);
+  --md-editor-foreground: var(--vscode-editor-foreground);
+  --md-editor-quote-bg: #2d2d2d;
+  --md-editor-selection: var(--vscode-editor-selection-background);
+}
+
+/* Theme-specific overrides based on VS Code theme */
+:root.theme-dark {
+  --md-editor-selection: #264f78;
+}
+
+:root.theme-light {
+  --md-editor-selection: #b0d0ff;
+}
+
+:root.theme-high-contrast {
+  --md-editor-selection: #0000ff;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--md-editor-background);
+  color: var(--md-editor-foreground);
+  overflow: hidden;
+}
+
+#editor {
+  width: 100vw;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.md-editor-loading,
+.md-editor-error {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 24px;
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  color: var(--md-editor-foreground);
+}
+
+.md-editor-loading {
+  display: grid;
+  place-items: center;
+  color: color-mix(in srgb, var(--md-editor-foreground), transparent 25%);
+}
+
+.md-editor-error {
+  background: var(--md-editor-background);
+}
+
+.md-editor-error h1 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.md-editor-error pre {
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.md-editor-toast-container {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 40px));
+  pointer-events: none;
+}
+
+.md-editor-toast {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 10px 14px;
+  border-left: 4px solid var(--vscode-button-background);
+  border-radius: 6px;
+  background: var(--vscode-panel-background);
+  color: var(--vscode-editor-foreground);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  animation: md-editor-toast-enter 160ms ease-out;
+}
+
+.md-editor-toast--success {
+  border-left-color: #2e7d32;
+}
+
+.md-editor-toast--error {
+  border-left-color: #d13438;
+}
+
+.md-editor-readonly-badge {
+  position: fixed;
+  top: 12px;
+  right: 14px;
+  z-index: 10000;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, #d7ba7d, transparent 20%);
+  border-radius: 6px;
+  background: color-mix(
+    in srgb,
+    var(--vscode-editor-background),
+    #d7ba7d 18%
+  );
+  color: var(--vscode-editor-foreground);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.md-editor-readonly .milkdown-toolbar,
+.md-editor-readonly .milkdown-block-handle,
+.md-editor-readonly .milkdown-slash-menu,
+.md-editor-readonly .milkdown-link-tooltip,
+.md-editor-readonly .milkdown-link-preview,
+.md-editor-readonly .milkdown-link-edit,
+.md-editor-readonly .md-table-toolbar,
+.md-editor-readonly .md-table-context-menu,
+.md-editor-readonly .md-table-slash-menu,
+.md-editor-readonly .md-table-insert-dialog {
+  display: none !important;
+}
+
+.md-editor-toast--leaving {
+  animation: md-editor-toast-leave 180ms ease-in forwards;
+}
+
+/*
+ * The VS Code webview scrolls inside #editor instead of the document body.
+ * Crepe/Floating UI computes viewport coordinates for these controls, so keep
+ * them fixed to the viewport or they can open off-screen after scrolling.
+ */
+.milkdown .milkdown-block-handle,
+.milkdown .milkdown-slash-menu {
+  position: fixed !important;
+}
+
+.milkdown .milkdown-block-handle {
+  z-index: 1004;
+}
+
+.milkdown .milkdown-slash-menu {
+  z-index: 1005;
+}
+
+.md-code-block-language-visible
+  .milkdown
+  .milkdown-code-block
+  .tools
+  .language-button {
+  opacity: 1;
+}
+
+.md-code-block-copy-visible
+  .milkdown
+  .milkdown-code-block
+  .tools
+  .tools-button-group
+  .copy-button {
+  opacity: 1;
+}
+
+@keyframes md-editor-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes md-editor-toast-leave {
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Force Milkdown to use our theme colors */
+.milkdown {
+  --crepe-color-background: var(--md-editor-background);
+  --crepe-color-on-background: var(--md-editor-foreground);
+  --crepe-color-surface: #2a2a2a;
+  --crepe-color-surface-low: #2a2a2a;
+  --crepe-color-on-surface: var(--md-editor-foreground);
+  --crepe-color-on-surface-variant: #a0a0a0;
+  --crepe-color-outline: #606060;
+  --crepe-color-primary: #0e639c;
+  --crepe-color-secondary: #3a3a3a;
+  --crepe-color-on-secondary: #ffffff;
+  --crepe-color-hover: #3a3a3a;
+  --crepe-color-selected: var(--md-editor-selection);
+  --crepe-color-inline-code: var(--md-editor-foreground);
+  --crepe-color-error: #f48771;
+}
+
+/* Text selection highlighting */
+.milkdown .prose ::selection {
+  background: var(--md-editor-selection) !important;
+  color: var(--md-editor-selection-foreground) !important;
+}
+
+.milkdown .prose ::-moz-selection {
+  background: var(--md-editor-selection) !important;
+  color: var(--md-editor-selection-foreground) !important;
+}
+
+/* Quote block theming */
+.milkdown .prose .blockquote {
+  background: var(--md-editor-quote-bg) !important;
+  border-left-color: var(--md-editor-foreground) !important;
+  color: var(--md-editor-foreground) !important;
+}
+
+/* Code block theming */
+.milkdown .prose .code-block {
+  background: #0d0d0d !important;
+  color: #d4d4d4 !important;
+}
+
+/* Inline code theming */
+.milkdown .ProseMirror :not(pre) > code,
+.milkdown .prose :not(pre) > code,
+.milkdown .ProseMirror kbd,
+.milkdown .prose kbd {
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--md-editor-foreground), transparent 78%);
+  border-radius: 4px;
+  background: color-mix(
+    in srgb,
+    var(--md-editor-foreground),
+    var(--md-editor-background) 86%
+  ) !important;
+  color: var(--md-editor-foreground) !important;
+  font-family: var(--vscode-editor-font-family, var(--crepe-font-code, ui-monospace, monospace));
+  font-size: 0.92em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.milkdown .ProseMirror pre code,
+.milkdown .prose pre code,
+.milkdown .milkdown-code-block code {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+}
+
+/* Inline code selection */
+.milkdown .ProseMirror code::selection,
+.milkdown .prose code::selection,
+.milkdown .ProseMirror kbd::selection,
+.milkdown .prose kbd::selection {
+  background: var(--md-editor-selection) !important;
+  color: var(--md-editor-selection-foreground) !important;
+}
+
+/* Dropdown/select menus - force VS Code colors */
+.milkdown select,
+.milkdown option,
+.milkdown option:hover,
+.milkdown option:checked {
+  background: var(--vscode-dropdown-background) !important;
+  color: var(--vscode-dropdown-foreground) !important;
+  border-color: var(--vscode-dropdown-border) !important;
+}
+
+/* Code block language dropdown */
+.milkdown .code-block .dropdown-button,
+.milkdown .code-block .dropdown-menu,
+.milkdown .code-block .dropdown-item {
+  background: var(--vscode-dropdown-background) !important;
+  color: var(--vscode-dropdown-foreground) !important;
+  border-color: var(--vscode-dropdown-border) !important;
+  cursor: pointer !important;
+}
+
+.milkdown .code-block .dropdown-item:hover {
+  background: var(--vscode-button-background) !important;
+  color: var(--vscode-button-foreground) !important;
+}
+
+/* Toolbar theming */
+.milkdown .milkdown-toolbar {
+  background: var(--crepe-color-surface) !important;
+  border: 1px solid var(--crepe-color-outline) !important;
+}
+
+.milkdown .milkdown-toolbar .toolbar-item {
+  color: var(--crepe-color-on-surface) !important;
+}
+
+.milkdown .milkdown-toolbar .toolbar-item:hover {
+  background: var(--crepe-color-hover) !important;
+}
+
+.milkdown .milkdown-toolbar .divider {
+  background: var(--crepe-color-outline) !important;
+}
+
+/* Link tooltip theming */
+.milkdown .milkdown-link-tooltip {
+  background: var(--crepe-color-surface) !important;
+  border-color: var(--crepe-color-outline) !important;
+}
+
+.milkdown .milkdown-link-tooltip input {
+  background: var(--vscode-input-background, #3c3c3c) !important;
+  color: var(--vscode-input-foreground, #cccccc) !important;
+  border-color: var(--vscode-button-background) !important;
+}
+
+/* Progress bar styling */
+.milkdown .code-block .code-mirror-progress {
+  border-color: var(--crepe-color-outline) !important;
+  color: var(--crepe-color-on-surface) !important;
+}
+
+/* Scrollbar theming */
+.milkdown::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.milkdown::-webkit-scrollbar-track {
+  background: var(--md-editor-background);
+}
+
+.milkdown::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 5px;
+}
+
+.milkdown::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+}

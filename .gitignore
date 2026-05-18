@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-types/
+out/
+.attachments/
+
+*.log
+*.tmp
+.env
+.env.*
+.DS_Store

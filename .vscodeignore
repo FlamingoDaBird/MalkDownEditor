@@ -1,0 +1,14 @@
+node_modules
+src
+tsconfig*.json
+*.ts
+dist-types
+out
+.git
+.attachments
+tests
+FEATURES.md
+PROJECT_CHECKPOINT_GUIDE.md
+SESSION_SUMMARY.md
+AGENTS.md
+*.map
