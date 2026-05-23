@@ -2,7 +2,13 @@ import { Crepe, CrepeFeature } from "@milkdown/crepe";
 import { commandsCtx, editorViewCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { DOMSerializer } from "@milkdown/kit/prose/model";
-import { Selection, type Command } from "@milkdown/kit/prose/state";
+import {
+  NodeSelection,
+  Selection,
+  TextSelection,
+  type Command,
+} from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import { insertTableCommand } from "@milkdown/kit/preset/gfm";
 import {
   addColumnAfter,
@@ -39,9 +45,12 @@ import type {
 
 const bridge = new WebviewBridge();
 let editor: Crepe | undefined;
+let editorMounted = false;
+let initialMountStarted = false;
 let currentVersion = 0;
 let themeClass: string | undefined = undefined;
 let didWarnAboutInvalidDomSpec = false;
+let applyingExternalUpdate = false;
 let requestSequence = 0;
 let generatedControlObserver: MutationObserver | undefined;
 let tableToolbarElement: HTMLElement | undefined;
@@ -53,6 +62,9 @@ let tableUiUpdateAnimationFrame: number | undefined;
 let tableSlashMenuUpdateAnimationFrame: number | undefined;
 let tableSlashMenuActiveIndex = 0;
 let tableSlashMenuVisibleItems: TableActionItem[] = [];
+let imageDeleteControlsCleanup: (() => void) | undefined;
+let imageLightboxCleanup: (() => void) | undefined;
+const lockedImageSources = new Set<string>();
 let readOnlyMode = false;
 let readOnlyBadgeElement: HTMLElement | undefined;
 let dateTimeSettings: DateTimeSettings = {
@@ -85,6 +97,39 @@ interface PendingRequest {
 
 const pendingAttachmentUploads = new Map<string, PendingRequest>();
 const pendingAttachmentSrcResolutions = new Map<string, PendingRequest>();
+const pendingAttachmentPathCopies = new Map<string, PendingRequest>();
+const ATTACHMENT_SRC_FALLBACK_TIMEOUT_MS = 3000;
+const MILKDOWN_STARTUP_TIMEOUT_MS = 15000;
+bootLog("module-start", "Webview module started", {
+  readyState: document.readyState,
+  hidden: document.hidden,
+  visibilityState: document.visibilityState,
+  viewport: {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  },
+  location: String(window.location),
+});
+bootLog("document-state", "Initial webview document state", documentStateSnapshot());
+document.addEventListener("visibilitychange", () => {
+  bootLog("visibility-change", "Webview document visibility changed", documentStateSnapshot());
+});
+window.addEventListener("focus", () => {
+  bootLog("window-focus", "Webview window focused", documentStateSnapshot());
+});
+window.addEventListener("blur", () => {
+  bootLog("window-blur", "Webview window blurred", documentStateSnapshot());
+});
+let initWatchdog: number | undefined = window.setTimeout(() => {
+  if (editorMounted) return;
+
+  showFatalError(
+    new Error(
+      "MD Editor did not receive initialization from the extension host.",
+    ),
+  );
+}, 15000);
+setLoadingStatus("MD Editor script loaded. Waiting for extension host...");
 
 const quoteToolbarIcon = `
   <svg
@@ -268,6 +313,62 @@ const deleteTableIcon = `
   </svg>
 `;
 
+const imageZoomIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      fill="currentColor"
+      d="M10.5 4a6.5 6.5 0 0 1 5.17 10.45l4.44 4.44l-1.42 1.42l-4.44-4.44A6.5 6.5 0 1 1 10.5 4Zm0 2a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9Zm-.75 1.5h1.5v2.25h2.25v1.5h-2.25v2.25h-1.5v-2.25H7.5v-1.5h2.25V7.5Z"
+    />
+  </svg>
+`;
+
+const imageCopyPathIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      fill="currentColor"
+      d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"
+    />
+  </svg>
+`;
+
+const imageLockOpenIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      fill="currentColor"
+      d="M17 8h-1V6a4 4 0 0 0-7.75-1.38l1.88.68A2 2 0 0 1 14 6v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2Zm0 11H7v-9h10v9Zm-5-2a1.5 1.5 0 1 0 0-3a1.5 1.5 0 0 0 0 3Z"
+    />
+  </svg>
+`;
+
+const imageLockClosedIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      fill="currentColor"
+      d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4V6Zm7 13H7v-9h10v9Zm-5-2a1.5 1.5 0 1 0 0-3a1.5 1.5 0 0 0 0 3Z"
+    />
+  </svg>
+`;
+
 // Theme configuration - ensure we have a default
 interface ThemeStyle {
   variables: Record<string, string>;
@@ -417,7 +518,113 @@ function getErrorDetails(error: unknown): { message: string; stack?: string } {
   return { message: String(error) };
 }
 
+function setLoadingStatus(message: string): void {
+  const loading = document.querySelector<HTMLElement>(".md-editor-loading");
+  if (loading) loading.textContent = message;
+  bootLog("module-status", message);
+}
+
+function bootLog(stage: string, message: string, details?: unknown): void {
+  window.__mdEditorBootLog?.(stage, message, details);
+}
+
+function elementSnapshot(element: Element | null): Record<string, unknown> | null {
+  if (!(element instanceof HTMLElement)) return null;
+
+  const rect = element.getBoundingClientRect();
+  const style = window.getComputedStyle(element);
+
+  return {
+    tag: element.tagName.toLowerCase(),
+    className: element.className,
+    text: element.textContent?.slice(0, 120) ?? "",
+    rect: {
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+      top: Math.round(rect.top),
+      left: Math.round(rect.left),
+    },
+    display: style.display,
+    visibility: style.visibility,
+    opacity: style.opacity,
+  };
+}
+
+function elementIdentity(element: Element | null): Record<string, unknown> | null {
+  if (!(element instanceof HTMLElement)) return null;
+
+  return {
+    tag: element.tagName.toLowerCase(),
+    id: element.id || undefined,
+    className: element.className || undefined,
+    text: element.textContent?.slice(0, 80) ?? "",
+  };
+}
+
+function documentStateSnapshot(): Record<string, unknown> {
+  const centerX = Math.max(0, Math.floor(window.innerWidth / 2));
+  const centerY = Math.max(0, Math.floor(window.innerHeight / 2));
+  const topLeft = document.elementFromPoint(8, 8);
+  const center = document.elementFromPoint(centerX, centerY);
+
+  return {
+    readyState: document.readyState,
+    hidden: document.hidden,
+    visibilityState: document.visibilityState,
+    hasFocus: document.hasFocus(),
+    viewport: {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    },
+    scroll: {
+      x: Math.round(window.scrollX),
+      y: Math.round(window.scrollY),
+    },
+    activeElement: elementIdentity(document.activeElement),
+    elementAtTopLeft: elementIdentity(topLeft),
+    elementAtCenter: elementIdentity(center),
+  };
+}
+
+function editorDomSnapshot(root: HTMLElement): Record<string, unknown> {
+  const milkdown = root.querySelector(".milkdown");
+  const proseMirror = root.querySelector(".ProseMirror");
+  const loading = root.querySelector(".md-editor-loading");
+
+  return {
+    document: documentStateSnapshot(),
+    html: elementSnapshot(document.documentElement),
+    body: elementSnapshot(document.body),
+    root: elementSnapshot(root),
+    childCount: root.childElementCount,
+    firstChild: elementSnapshot(root.firstElementChild),
+    loading: elementSnapshot(loading),
+    milkdown: elementSnapshot(milkdown),
+    proseMirror: elementSnapshot(proseMirror),
+    milkdownCount: root.querySelectorAll(".milkdown").length,
+    proseMirrorCount: root.querySelectorAll(".ProseMirror").length,
+    loadingCount: root.querySelectorAll(".md-editor-loading").length,
+    bodyClass: document.body.className,
+    documentClass: document.documentElement.className,
+  };
+}
+
+function forceWebviewRepaint(root: HTMLElement): void {
+  document.body.classList.add("md-editor-mounted");
+  root.style.transform = "translateZ(0)";
+  void root.offsetHeight;
+  window.requestAnimationFrame(() => {
+    root.style.transform = "";
+    bootLog("render-nudge", "Forced webview repaint after mount", editorDomSnapshot(root));
+  });
+}
+
 function showFatalError(error: unknown) {
+  if (initWatchdog !== undefined) {
+    window.clearTimeout(initWatchdog);
+    initWatchdog = undefined;
+  }
+
   const details = getErrorDetails(error);
   const root = document.getElementById("editor") || document.body;
   const wrapper = document.createElement("div");
@@ -439,6 +646,23 @@ function showFatalError(error: unknown) {
     } as WebviewToHostMessage);
   } catch (postError) {
     console.error("Failed to report webview error to host:", postError);
+  }
+}
+
+function reportNonFatalWebviewError(context: string, error: unknown): void {
+  const details = getErrorDetails(error);
+  const message = `${context}: ${details.message}`;
+
+  console.error("MD Editor webview non-fatal error:", message, details.stack);
+
+  try {
+    bridge.postMessage({
+      type: "error",
+      message,
+      stack: details.stack,
+    } as WebviewToHostMessage);
+  } catch {
+    // Best effort only; startup and editing should continue.
   }
 }
 
@@ -626,6 +850,7 @@ installDomSpecSanitizer();
 // Handle messages from host
 bridge.onMessage((message) => {
   const msg = message as HostToWebviewMessage;
+  bootLog("host-message", `Received host message: ${msg.type}`);
   switch (msg.type) {
     case "attachmentUploaded":
       if (msg.ok && msg.src) {
@@ -650,6 +875,20 @@ bridge.onMessage((message) => {
         msg.message,
       );
       break;
+    case "attachmentPathCopied":
+      if (msg.ok) {
+        showEditorToast("Image path copied", "success");
+      } else if (msg.message) {
+        showEditorToast(`Copy failed: ${msg.message}`, "error");
+      }
+      settlePendingRequest(
+        pendingAttachmentPathCopies,
+        msg.requestId,
+        msg.ok,
+        msg.path,
+        msg.message,
+      );
+      break;
     case "runDateTimeAction":
       runDateTimeAction(msg.action);
       break;
@@ -663,7 +902,21 @@ bridge.onMessage((message) => {
       applyTableSettings();
       applyCodeBlockSettings();
       break;
+    case "fatalError":
+      showFatalError(
+        new Error(msg.stack ? `${msg.message}\n\n${msg.stack}` : msg.message),
+      );
+      break;
     case "init":
+      bootLog("init-received", "Received init message", {
+        version: msg.version,
+        markdownLength: msg.markdown.length,
+        readOnly: msg.readOnly,
+      });
+      if (editorMounted && msg.version <= currentVersion) return;
+      if (initialMountStarted && !editorMounted) return;
+
+      initialMountStarted = true;
       currentVersion = msg.version;
       themeClass = msg.themeClass || "theme-dark";
       dateTimeSettings = msg.dateTime;
@@ -673,9 +926,19 @@ bridge.onMessage((message) => {
       applyThemeVariables(msg.theme?.name);
       applyTableSettings();
       applyCodeBlockSettings();
-      void mountEditor(msg.markdown).catch(showFatalError);
+      setLoadingStatus("Creating MD Editor...");
+      void mountEditor(msg.markdown)
+        .catch(showFatalError)
+        .finally(() => {
+          initialMountStarted = false;
+        });
       break;
     case "externalUpdate":
+      bootLog("external-update", "Received external update", {
+        version: msg.version,
+        currentVersion,
+        markdownLength: msg.markdown.length,
+      });
       if (msg.version <= currentVersion) return;
       currentVersion = msg.version;
       void updateEditor(msg.markdown).catch(showFatalError);
@@ -757,15 +1020,67 @@ function resolveAttachmentSrc(src: string): Promise<string> | string {
   if (!src || isBrowserUrl(src)) return src;
 
   const requestId = createRequestId("src");
+  bootLog("attachment-src-request", "Requesting attachment URL", {
+    requestId,
+    src,
+  });
   return new Promise((resolve, reject) => {
     const timeout = window.setTimeout(() => {
       pendingAttachmentSrcResolutions.delete(requestId);
-      reject(new Error("Attachment URL resolution timed out."));
-    }, 10000);
+      console.warn(
+        `Attachment URL resolution timed out for ${src}; using original source.`,
+      );
+      resolve(src);
+    }, ATTACHMENT_SRC_FALLBACK_TIMEOUT_MS);
 
     pendingAttachmentSrcResolutions.set(requestId, { resolve, reject, timeout });
     bridge.postMessage({
       type: "resolveAttachmentSrc",
+      requestId,
+      src,
+    } as WebviewToHostMessage);
+  });
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      bootLog("timeout", message, { timeoutMs });
+      reject(new Error(message));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+}
+
+function copyAttachmentPath(src: string): Promise<string> {
+  if (!src) {
+    return Promise.reject(new Error("Image path is empty."));
+  }
+
+  const requestId = createRequestId("copy-path");
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      pendingAttachmentPathCopies.delete(requestId);
+      reject(new Error("Copy image path timed out."));
+    }, 10000);
+
+    pendingAttachmentPathCopies.set(requestId, { resolve, reject, timeout });
+    bridge.postMessage({
+      type: "copyAttachmentPath",
       requestId,
       src,
     } as WebviewToHostMessage);
@@ -2194,6 +2509,8 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
 });
 
 // Ready!
+setLoadingStatus("Webview ready. Waiting for document...");
+bootLog("ready-post", "Posting ready message to extension host");
 bridge.postMessage({ type: "ready" } as WebviewToHostMessage);
 
 async function mountEditor(markdown: string): Promise<void> {
@@ -2202,17 +2519,28 @@ async function mountEditor(markdown: string): Promise<void> {
     throw new Error("Editor root element not found.");
   }
 
+  bootLog("mount-start", "Starting editor mount", {
+    markdownLength: markdown.length,
+    hasExistingEditor: !!editor,
+  });
+  editorMounted = false;
+
   // Apply theme class to root element
   setThemeClass(themeClass);
 
   if (editor) {
     generatedControlObserver?.disconnect();
     generatedControlObserver = undefined;
+    imageDeleteControlsCleanup?.();
+    imageDeleteControlsCleanup = undefined;
+    imageLightboxCleanup?.();
+    imageLightboxCleanup = undefined;
     disposeTableControls();
     await editor.destroy();
   }
 
   root.replaceChildren();
+  bootLog("mount-root-ready", "Editor root prepared");
   
   editor = new Crepe({
     root,
@@ -2311,15 +2639,33 @@ async function mountEditor(markdown: string): Promise<void> {
     },
   });
 
-  await editor.create();
+  bootLog("milkdown-create-start", "Calling editor.create()");
+  await withTimeout(
+    editor.create(),
+    MILKDOWN_STARTUP_TIMEOUT_MS,
+    "Milkdown editor startup timed out.",
+  );
+  bootLog("milkdown-create-done", "editor.create() resolved");
   applyReadOnlyMode(readOnlyMode);
+  bootLog("post-create-controls-start", "Installing post-create controls");
   installGeneratedControlLabels(document.body);
   installTableControls(root);
-  installImageLightbox(root);
+  try {
+    installImageLightbox(root);
+  } catch (error) {
+    reportNonFatalWebviewError("Image lightbox setup failed", error);
+  }
+
+  try {
+    installImageActionControls(root);
+  } catch (error) {
+    reportNonFatalWebviewError("Image action setup failed", error);
+  }
 
   // Sync changes back to host when markdown is updated
   editor.on((api) => {
     api.markdownUpdated((ctx, markdown) => {
+      if (applyingExternalUpdate) return;
       if (readOnlyMode) return;
 
       const nextVersion = currentVersion + 1;
@@ -2331,6 +2677,36 @@ async function mountEditor(markdown: string): Promise<void> {
       currentVersion = nextVersion;
     });
   });
+
+  editorMounted = true;
+  forceWebviewRepaint(root);
+  bridge.postMessage({
+    type: "editorMounted",
+    version: currentVersion,
+    markdownLength: markdown.length,
+  } as WebviewToHostMessage);
+  bootLog("mount-complete", "Editor mount complete");
+  bootLog("dom-snapshot", "Editor DOM snapshot after mount", editorDomSnapshot(root));
+  window.requestAnimationFrame(() => {
+    bootLog(
+      "dom-snapshot-raf",
+      "Editor DOM snapshot after animation frame",
+      editorDomSnapshot(root),
+    );
+  });
+  for (const delay of [250, 1000, 3000]) {
+    window.setTimeout(() => {
+      bootLog(
+        `dom-snapshot-timeout-${delay}`,
+        `Editor DOM snapshot after ${delay}ms`,
+        editorDomSnapshot(root),
+      );
+    }, delay);
+  }
+  if (initWatchdog !== undefined) {
+    window.clearTimeout(initWatchdog);
+    initWatchdog = undefined;
+  }
 }
 
 function showEditorToast(
@@ -2369,9 +2745,613 @@ function ensureToastContainer(): HTMLElement {
 let lightboxElement: HTMLElement | null = null;
 let lightboxImg: HTMLImageElement | null = null;
 let savedSelection: { from: number; to: number } | null = null;
+let lightboxScale = 1;
+const LIGHTBOX_MIN_SCALE = 1;
+const LIGHTBOX_MAX_SCALE = 6;
+const LIGHTBOX_SCALE_STEP = 0.2;
 
-function installImageLightbox(root: HTMLElement): void {
-  // Create lightbox overlay once
+function isImageBlockNode(node: { type: { name: string } } | null | undefined): boolean {
+  return node?.type.name === "image-block";
+}
+
+function findImageBlockPosition(
+  view: EditorView,
+  imageBlock: HTMLElement,
+): number | undefined {
+  const candidates = new Set<number>();
+  const maxPosition = view.state.doc.content.size;
+  const addCandidate = (position: number | undefined | null) => {
+    if (position === undefined || position === null || !Number.isFinite(position)) {
+      return;
+    }
+
+    for (const offset of [0, -1, 1, -2, 2]) {
+      const candidate = Math.max(0, Math.min(maxPosition, position + offset));
+      candidates.add(candidate);
+    }
+  };
+
+  try {
+    addCandidate(view.posAtDOM(imageBlock, 0));
+  } catch {
+    // Best-effort fallback below.
+  }
+
+  try {
+    addCandidate(view.posAtDOM(imageBlock, imageBlock.childNodes.length));
+  } catch {
+    // Best-effort fallback below.
+  }
+
+  try {
+    const rect = imageBlock.getBoundingClientRect();
+    if (
+      Number.isFinite(rect.left) &&
+      Number.isFinite(rect.top) &&
+      Number.isFinite(rect.width) &&
+      Number.isFinite(rect.height)
+    ) {
+      const positionAtCenter = view.posAtCoords({
+        left: rect.left + rect.width / 2,
+        top: rect.top + rect.height / 2,
+      });
+      addCandidate(positionAtCenter?.pos);
+    }
+  } catch {
+    // Detached or hidden image blocks may not be mappable yet.
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const node = view.state.doc.nodeAt(candidate);
+      if (isImageBlockNode(node)) {
+        return candidate;
+      }
+    } catch {
+      // Ignore stale DOM positions.
+    }
+  }
+
+  return undefined;
+}
+
+function imageBlockInfo(
+  imageBlock: HTMLElement,
+): { src: string; caption: string } | undefined {
+  if (!editor) return undefined;
+
+  try {
+    return editor.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const position = findImageBlockPosition(view, imageBlock);
+      if (position === undefined) return undefined;
+
+      const node = view.state.doc.nodeAt(position);
+      if (!node || !isImageBlockNode(node)) return undefined;
+
+      return {
+        src: String(node.attrs.src ?? ""),
+        caption: String(node.attrs.caption ?? ""),
+      };
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+function updateImageBlockHoverMetadata(imageBlock: HTMLElement): void {
+  const info = imageBlockInfo(imageBlock);
+  const source = info?.src.trim();
+  const title = source
+    ? `Image: ${source}`
+    : "Image";
+  const img = imageBlock.querySelector<HTMLImageElement>("img");
+
+  imageBlock.setAttribute("title", title);
+  img?.setAttribute("title", title);
+}
+
+function imageLockKey(imageBlock: HTMLElement): string | undefined {
+  return imageBlockInfo(imageBlock)?.src.trim() || undefined;
+}
+
+function isImageBlockLocked(imageBlock: HTMLElement): boolean {
+  const key = imageLockKey(imageBlock);
+  return !!key && lockedImageSources.has(key);
+}
+
+function updateImageBlockLockState(imageBlock: HTMLElement): void {
+  const locked = isImageBlockLocked(imageBlock);
+  const lockButton = imageBlock.querySelector<HTMLButtonElement>(
+    ".md-image-lock-button",
+  );
+  const deleteButton = imageBlock.querySelector<HTMLButtonElement>(
+    ".md-image-delete-button",
+  );
+  const img = imageBlock.querySelector<HTMLImageElement>("img");
+
+  imageBlock.classList.toggle("md-image-block-locked", locked);
+  if (img) img.draggable = false;
+
+  if (lockButton) {
+    const nextLockState = locked ? "locked" : "unlocked";
+    if (lockButton.dataset.lockState !== nextLockState) {
+      lockButton.dataset.lockState = nextLockState;
+      lockButton.innerHTML = locked ? imageLockClosedIcon : imageLockOpenIcon;
+    }
+    lockButton.classList.toggle("md-image-lock-button--locked", locked);
+    lockButton.setAttribute(
+      "aria-label",
+      locked ? "Unlock image" : "Lock image",
+    );
+    lockButton.setAttribute("title", locked ? "Unlock image" : "Lock image");
+  }
+
+  if (deleteButton) {
+    deleteButton.disabled = locked;
+    deleteButton.setAttribute(
+      "aria-label",
+      locked ? "Image locked" : "Delete image",
+    );
+    deleteButton.setAttribute("title", locked ? "Image locked" : "Delete image");
+  }
+}
+
+function toggleImageLock(imageBlock: HTMLElement): void {
+  const key = imageLockKey(imageBlock);
+  if (!key) {
+    showEditorToast("Could not lock image", "error");
+    return;
+  }
+
+  if (lockedImageSources.has(key)) {
+    lockedImageSources.delete(key);
+    showEditorToast("Image unlocked", "success");
+  } else {
+    lockedImageSources.add(key);
+    showEditorToast("Image locked", "success");
+  }
+
+  updateImageBlockLockState(imageBlock);
+}
+
+function selectedLockedImageSource(): string | undefined {
+  if (!editor) return undefined;
+
+  try {
+    return editor.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const { selection } = view.state;
+
+      for (const position of [selection.from, selection.from - 1]) {
+        if (position < 0 || position > view.state.doc.content.size) continue;
+
+        const node = view.state.doc.nodeAt(position);
+        const source = isImageBlockNode(node)
+          ? String(node?.attrs.src ?? "").trim()
+          : "";
+        if (source && lockedImageSources.has(source)) {
+          return source;
+        }
+      }
+
+      return undefined;
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+function setCursorNearImageBlock(imageBlock: HTMLElement): boolean {
+  if (!editor) return false;
+
+  try {
+    return editor.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const position = findImageBlockPosition(view, imageBlock);
+      if (position === undefined) return false;
+
+      const selection = TextSelection.near(view.state.doc.resolve(position), -1);
+      view.dispatch(view.state.tr.setSelection(selection));
+      view.dom.blur();
+      return true;
+    });
+  } catch {
+    return false;
+  }
+}
+
+function selectImageBlock(imageBlock: HTMLElement): boolean {
+  if (!editor) return false;
+
+  try {
+    return editor.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const position = findImageBlockPosition(view, imageBlock);
+      if (position === undefined) return false;
+
+      const node = view.state.doc.nodeAt(position);
+      if (!node || !isImageBlockNode(node)) return false;
+
+      view.dispatch(
+        view.state.tr
+          .setSelection(NodeSelection.create(view.state.doc, position))
+          .scrollIntoView(),
+      );
+      view.focus();
+      return true;
+    });
+  } catch {
+    return false;
+  }
+}
+
+function blockLockedImageEdit(event: Event): boolean {
+  const lockedSource = selectedLockedImageSource();
+  if (!lockedSource) return false;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  showEditorToast("Image is locked.", "error");
+  return true;
+}
+
+function deleteImageBlock(imageBlock: HTMLElement): boolean {
+  if (!editor) return false;
+  if (shouldBlockEditAction()) return false;
+  if (isImageBlockLocked(imageBlock)) {
+    showEditorToast("Image is locked.", "error");
+    return false;
+  }
+
+  try {
+    return editor.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const position = findImageBlockPosition(view, imageBlock);
+      if (position === undefined) {
+        showEditorToast("Could not delete image", "error");
+        return false;
+      }
+
+      const node = view.state.doc.nodeAt(position);
+      if (!node || !isImageBlockNode(node)) {
+        showEditorToast("Could not delete image", "error");
+        return false;
+      }
+
+      view.dispatch(
+        view.state.tr
+          .delete(position, position + node.nodeSize)
+          .scrollIntoView(),
+      );
+      view.focus();
+      return true;
+    });
+  } catch {
+    showEditorToast("Could not delete image", "error");
+    return false;
+  }
+}
+
+function createImageActionButton(
+  className: string,
+  icon: string,
+  label: string,
+): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `operation-item md-image-action-button ${className}`;
+  button.innerHTML = icon;
+  button.setAttribute("aria-label", label);
+  button.setAttribute("title", label);
+  button.setAttribute("contenteditable", "false");
+  button.draggable = false;
+  return button;
+}
+
+function ensureImageActionButtons(root: HTMLElement): void {
+  const imageBlocks = root.querySelectorAll<HTMLElement>(".milkdown-image-block");
+
+  for (const imageBlock of imageBlocks) {
+    try {
+      updateImageBlockHoverMetadata(imageBlock);
+
+      const wrapper = Array.from(imageBlock.children).find((child) =>
+        child instanceof HTMLElement &&
+        child.classList.contains("image-wrapper")
+      ) as HTMLElement | undefined;
+      const operation = wrapper?.querySelector<HTMLElement>(".operation");
+      if (!operation) continue;
+
+      if (!operation.querySelector(".md-image-zoom-button")) {
+        operation.appendChild(
+          createImageActionButton(
+            "md-image-zoom-button",
+            imageZoomIcon,
+            "Zoom image",
+          ),
+        );
+      }
+
+      if (!operation.querySelector(".md-image-copy-path-button")) {
+        operation.appendChild(
+          createImageActionButton(
+            "md-image-copy-path-button",
+            imageCopyPathIcon,
+            "Copy image path",
+          ),
+        );
+      }
+
+      if (!operation.querySelector(".md-image-lock-button")) {
+        operation.appendChild(
+          createImageActionButton(
+            "md-image-lock-button",
+            imageLockOpenIcon,
+            "Lock image",
+          ),
+        );
+      }
+
+      if (!operation.querySelector(".md-image-delete-button")) {
+        operation.appendChild(
+          createImageActionButton(
+            "md-image-delete-button",
+            deleteTableIcon,
+            "Delete image",
+          ),
+        );
+      }
+
+      updateImageBlockLockState(imageBlock);
+    } catch (error) {
+      reportNonFatalWebviewError("Image action button refresh failed", error);
+    }
+  }
+}
+
+function installImageActionControls(root: HTMLElement): void {
+  imageDeleteControlsCleanup?.();
+
+  let imageActionRefreshScheduled = false;
+  const scheduleImageActionRefresh = () => {
+    if (imageActionRefreshScheduled) return;
+
+    imageActionRefreshScheduled = true;
+    window.setTimeout(() => {
+      imageActionRefreshScheduled = false;
+      try {
+        ensureImageActionButtons(root);
+      } catch (error) {
+        reportNonFatalWebviewError("Image action mutation refresh failed", error);
+      }
+    }, 0);
+  };
+
+  const observer = new MutationObserver(() => {
+    scheduleImageActionRefresh();
+  });
+  const onPointerDown = (event: PointerEvent) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest(".md-image-action-button")) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    if (
+      target instanceof HTMLImageElement &&
+      target.closest(".milkdown-image-block")
+    ) {
+      const imageBlock = target.closest<HTMLElement>(".milkdown-image-block");
+      if (!imageBlock) return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      if (event.button === 1) {
+        selectImageBlock(imageBlock);
+      } else if (event.button === 0) {
+        setCursorNearImageBlock(imageBlock);
+      }
+    }
+  };
+  const onClick = (event: MouseEvent) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const button = target.closest<HTMLButtonElement>(".md-image-action-button");
+    if (!button) {
+      if (
+        target instanceof HTMLImageElement &&
+        target.closest(".milkdown-image-block")
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    const imageBlock = button.closest<HTMLElement>(".milkdown-image-block");
+    if (!imageBlock) return;
+
+    if (button.classList.contains("md-image-lock-button")) {
+      toggleImageLock(imageBlock);
+      return;
+    }
+
+    if (button.classList.contains("md-image-copy-path-button")) {
+      const info = imageBlockInfo(imageBlock);
+      if (!info?.src) {
+        showEditorToast("Could not copy image path", "error");
+        return;
+      }
+
+      void copyAttachmentPath(info.src).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        showEditorToast(`Copy failed: ${message}`, "error");
+      });
+      return;
+    }
+
+    if (button.classList.contains("md-image-delete-button")) {
+      deleteImageBlock(imageBlock);
+      return;
+    }
+
+    if (button.classList.contains("md-image-zoom-button")) {
+      const img = imageBlock.querySelector<HTMLImageElement>("img");
+      if (img?.src) {
+        const info = imageBlockInfo(imageBlock);
+        openImageLightbox(img.src, info?.src || img.alt || "Image");
+      }
+    }
+  };
+  const onDragStart = (event: DragEvent) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (!target.closest(".milkdown-image-block")) return;
+    if (target.closest(".milkdown-block-handle")) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showEditorToast("Use the block handle to move images.", "error");
+  };
+  const onCut = (event: ClipboardEvent) => {
+    blockLockedImageEdit(event);
+  };
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (
+      event.key !== "Delete" &&
+      event.key !== "Backspace" &&
+      !((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "x")
+    ) {
+      return;
+    }
+
+    blockLockedImageEdit(event);
+  };
+  const onBeforeInput = (event: InputEvent) => {
+    if (
+      event.inputType !== "deleteContentBackward" &&
+      event.inputType !== "deleteContentForward" &&
+      event.inputType !== "deleteByCut"
+    ) {
+      return;
+    }
+
+    blockLockedImageEdit(event);
+  };
+
+  ensureImageActionButtons(root);
+  observer.observe(root, { childList: true, subtree: true });
+  root.addEventListener("pointerdown", onPointerDown, { capture: true });
+  root.addEventListener("click", onClick, { capture: true });
+  root.addEventListener("dragstart", onDragStart, { capture: true });
+  root.addEventListener("cut", onCut, { capture: true });
+  document.addEventListener("keydown", onKeyDown, { capture: true });
+  root.addEventListener("beforeinput", onBeforeInput, { capture: true });
+
+  imageDeleteControlsCleanup = () => {
+    observer.disconnect();
+    imageActionRefreshScheduled = false;
+    root.removeEventListener("pointerdown", onPointerDown, { capture: true });
+    root.removeEventListener("click", onClick, { capture: true });
+    root.removeEventListener("dragstart", onDragStart, { capture: true });
+    root.removeEventListener("cut", onCut, { capture: true });
+    document.removeEventListener("keydown", onKeyDown, { capture: true });
+    root.removeEventListener("beforeinput", onBeforeInput, { capture: true });
+  };
+}
+
+function isLightboxOpen(): boolean {
+  return lightboxElement?.classList.contains("active") ?? false;
+}
+
+function clampLightboxScale(value: number): number {
+  return Math.min(
+    LIGHTBOX_MAX_SCALE,
+    Math.max(LIGHTBOX_MIN_SCALE, Number(value.toFixed(2))),
+  );
+}
+
+function setLightboxScale(scale: number): void {
+  lightboxScale = clampLightboxScale(scale);
+  if (lightboxImg) {
+    lightboxImg.style.transform = `scale(${lightboxScale})`;
+  }
+}
+
+function clearLightboxEditorSelection(): void {
+  if (!savedSelection || !editor) return;
+
+  try {
+    editor.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const { state } = view;
+      const position = Math.max(
+        0,
+        Math.min(savedSelection?.from ?? 0, state.doc.content.size),
+      );
+      const selection = TextSelection.near(state.doc.resolve(position), -1);
+      view.dispatch(state.tr.setSelection(selection));
+      view.dom.blur();
+    });
+  } catch {
+    // Best effort only: the selection may no longer map after edits.
+  }
+}
+
+function openImageLightbox(src: string, label: string): void {
+  if (!lightboxElement || !lightboxImg) return;
+
+  if (editor) {
+    try {
+      editor.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        savedSelection = {
+          from: view.state.selection.from,
+          to: view.state.selection.to,
+        };
+      });
+    } catch {
+      savedSelection = null;
+    }
+  }
+
+  lightboxImg.src = src;
+  lightboxImg.alt = label;
+  lightboxElement.style.display = "flex";
+  setLightboxScale(1);
+  requestAnimationFrame(() => lightboxElement?.classList.add("active"));
+}
+
+function closeLightbox(): void {
+  clearLightboxEditorSelection();
+  savedSelection = null;
+
+  lightboxElement?.classList.remove("active");
+  window.setTimeout(() => {
+    if (!lightboxElement || lightboxElement.classList.contains("active")) {
+      return;
+    }
+
+    lightboxElement.style.display = "none";
+    if (lightboxImg) {
+      lightboxImg.src = "";
+      lightboxImg.alt = "Preview";
+      setLightboxScale(1);
+    }
+  }, 200);
+}
+
+function installImageLightbox(_root: HTMLElement): void {
+  imageLightboxCleanup?.();
+
   lightboxElement = document.createElement("div");
   lightboxElement.className = "md-editor-lightbox";
   lightboxElement.style.display = "none";
@@ -2382,91 +3362,80 @@ function installImageLightbox(root: HTMLElement): void {
   document.body.appendChild(lightboxElement);
 
   lightboxImg = lightboxElement.querySelector<HTMLImageElement>("img")!;
-
-  const closeLightbox = () => {
-    // Move cursor to the end of the selected image node to deselect it
-    if (savedSelection && editor) {
-      try {
-        editor.editor.action((ctx) => {
-          const view = ctx.get(editorViewCtx);
-          const { state } = view;
-          if (savedSelection && savedSelection.from > 0 && savedSelection.from < state.doc.content.size) {
-            const resolved = state.doc.resolve(savedSelection.from + 1);
-            const tr = state.tr.setSelection(Selection.near(resolved, 1));
-            view.dispatch(tr);
-            view.focus();
-          }
-        });
-      } catch {
-        // Silently ignore — best effort only
-      }
-    }
-    savedSelection = null;
-
-    lightboxElement?.classList.remove("active");
-    setTimeout(() => {
-      lightboxElement!.style.display = "none";
-      lightboxImg!.src = "";
-    }, 200);
-  };
-
-  lightboxElement.querySelector<HTMLButtonElement>(".md-editor-lightbox-close")!.addEventListener("click", (e) => {
+  const closeButton = lightboxElement.querySelector<HTMLButtonElement>(
+    ".md-editor-lightbox-close",
+  )!;
+  const onCloseButtonClick = (e: MouseEvent) => {
     e.stopPropagation();
     closeLightbox();
-  });
-
-  lightboxElement.addEventListener("click", (e) => {
+  };
+  const onLightboxClick = (e: MouseEvent) => {
     if (e.target === lightboxElement) {
       closeLightbox();
+      return;
     }
-  });
 
-  root.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement;
-    if (target.tagName === "IMG" && target.closest(".milkdown-image-block")) {
+    if (e.target === lightboxImg) {
       e.preventDefault();
       e.stopPropagation();
-
-      // Save current selection before opening lightbox
-      if (editor) {
-        try {
-          editor.editor.action((ctx) => {
-            const view = ctx.get(editorViewCtx);
-            if (view?.state?.selection) {
-              savedSelection = {
-                from: view.state.selection.from,
-                to: view.state.selection.to,
-              };
-            }
-          });
-        } catch {
-          // Silently ignore
-        }
-      }
-
-      const src = target.getAttribute("src");
-      if (src) {
-        lightboxImg!.src = src;
-        lightboxElement!.style.display = "flex";
-        requestAnimationFrame(() => lightboxElement!.classList.add("active"));
-      }
+      setLightboxScale(1);
     }
-  });
+  };
+  const onLightboxContextMenu = (e: MouseEvent) => {
+    if (!isLightboxOpen()) return;
+    e.preventDefault();
+    closeLightbox();
+  };
+  const onLightboxWheel = (e: WheelEvent) => {
+    if (!isLightboxOpen()) return;
+    e.preventDefault();
+    const direction = e.deltaY < 0 ? 1 : -1;
+    setLightboxScale(lightboxScale + direction * LIGHTBOX_SCALE_STEP);
+  };
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (!isLightboxOpen()) return;
 
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && lightboxElement?.classList.contains("active")) {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
       closeLightbox();
     }
-  });
+  };
+
+  closeButton.addEventListener("click", onCloseButtonClick);
+  lightboxElement.addEventListener("click", onLightboxClick);
+  lightboxElement.addEventListener("contextmenu", onLightboxContextMenu);
+  lightboxElement.addEventListener("wheel", onLightboxWheel, { passive: false });
+  document.addEventListener("keydown", onKeyDown, { capture: true });
+
+  imageLightboxCleanup = () => {
+    closeButton.removeEventListener("click", onCloseButtonClick);
+    lightboxElement?.removeEventListener("click", onLightboxClick);
+    lightboxElement?.removeEventListener("contextmenu", onLightboxContextMenu);
+    lightboxElement?.removeEventListener("wheel", onLightboxWheel);
+    document.removeEventListener("keydown", onKeyDown, { capture: true });
+    lightboxElement?.remove();
+    lightboxElement = null;
+    lightboxImg = null;
+    savedSelection = null;
+  };
 }
 
 async function updateEditor(markdown: string): Promise<void> {
   if (!editor) return;
 
-  // Only update if content actually changed
   const current = editor.getMarkdown();
   if (current === markdown) return;
 
-  // Since Crepe doesn't have setMarkdown, we need to destroy and recreate
-  // For now, just skip - the external update should be from source, not webview changes
+  applyingExternalUpdate = true;
+  try {
+    await mountEditor(markdown);
+  } finally {
+    applyingExternalUpdate = false;
+  }
 }

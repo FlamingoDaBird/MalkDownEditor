@@ -53,4 +53,4 @@ src/webview/keyboard.ts, src/provider.ts
 
 ---
 
-**Usage:** Ask "should we checkpoint?" or I'll ask when a milestone is done. Just attach `SESSION_SUMMARY.md` in next session.
+**Usage:** Ask "should we checkpoint?" or I'll ask when a milestone is done. Use `docs/SESSION_SUMMARY.md` in the next session.

@@ -87,6 +87,20 @@ export interface AttachmentSrcResolvedMessage {
   message?: string;
 }
 
+export interface CopyAttachmentPathMessage {
+  type: "copyAttachmentPath";
+  requestId: string;
+  src: string;
+}
+
+export interface AttachmentPathCopiedMessage {
+  type: "attachmentPathCopied";
+  requestId: string;
+  ok: boolean;
+  path?: string;
+  message?: string;
+}
+
 export interface RunDateTimeActionMessage {
   type: "runDateTimeAction";
   action: DateTimeAction;
@@ -104,6 +118,26 @@ export interface SetReadOnlyMessage {
   readOnly: boolean;
 }
 
+export interface FatalErrorMessage {
+  type: "fatalError";
+  message: string;
+  stack?: string;
+}
+
+export interface WebviewBootLogMessage {
+  type: "webviewBootLog";
+  stage: string;
+  message: string;
+  details?: string;
+  timestamp?: string;
+}
+
+export interface EditorMountedMessage {
+  type: "editorMounted";
+  version: number;
+  markdownLength: number;
+}
+
 export type EditMessage = MarkdownSnapshot & { type: "edit" };
 export type ReadyMessage = { type: "ready" };
 export type SaveMessage = { type: "save" };
@@ -114,13 +148,18 @@ export type HostToWebviewMessage =
   | ExternalUpdateMessage
   | AttachmentUploadedMessage
   | AttachmentSrcResolvedMessage
+  | AttachmentPathCopiedMessage
   | RunDateTimeActionMessage
   | SettingsUpdatedMessage
-  | SetReadOnlyMessage;
+  | SetReadOnlyMessage
+  | FatalErrorMessage;
 export type WebviewToHostMessage =
   | EditMessage
   | ReadyMessage
   | SaveMessage
   | ErrorMessage
+  | WebviewBootLogMessage
+  | EditorMountedMessage
   | UploadAttachmentMessage
-  | ResolveAttachmentSrcMessage;
+  | ResolveAttachmentSrcMessage
+  | CopyAttachmentPathMessage;

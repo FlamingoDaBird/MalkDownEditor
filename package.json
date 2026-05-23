@@ -2,7 +2,7 @@
   "name": "md-editor",
   "displayName": "MD Editor",
   "description": "WYSIWYG Markdown editor for VS Code using Milkdown Crepe.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "flamingo",
   "private": true,
   "repository": {
@@ -112,7 +112,12 @@
       "properties": {
         "mdEditor.theme": {
           "type": "string",
-          "enum": ["vscode-dark", "vscode-light", "vscode-high-contrast", "default"],
+          "enum": [
+            "vscode-dark",
+            "vscode-light",
+            "vscode-high-contrast",
+            "default"
+          ],
           "default": "vscode-dark",
           "markdownDescription": "Theme used by the MD Editor webview."
         },
@@ -201,7 +206,10 @@
         },
         "mdEditor.tables.insertBehavior": {
           "type": "string",
-          "enum": ["useDefaultSize", "askEveryTime"],
+          "enum": [
+            "useDefaultSize",
+            "askEveryTime"
+          ],
           "enumDescriptions": [
             "Insert a table immediately using the configured default rows and columns.",
             "Open a row/column picker every time Insert Table is selected."
@@ -260,7 +268,7 @@
             "filenamePattern": "*.md"
           }
         ],
-        "priority": "default"
+        "priority": "option"
       }
     ],
     "menus": {
@@ -359,7 +367,12 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.webview.json --noEmit",
-    "package:vsix": "npx --yes @vscode/vsce package",
+    "test": "npm run test:unit",
+    "test:unit": "node --test --test-reporter=spec tests/unit/*.test.mjs",
+    "test:watch": "node --test --watch tests/unit/*.test.mjs",
+    "verify": "npm run typecheck && npm run build && npm run test:unit",
+    "test:ci": "npm run verify",
+    "package:vsix": "mkdir -p artifacts && npx --yes @vscode/vsce package --out artifacts/md-editor-$(node -p \"require('./package.json').version\").vsix",
     "vscode:prepublish": "npm run build"
   },
   "devDependencies": {

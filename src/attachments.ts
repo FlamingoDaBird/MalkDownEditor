@@ -34,6 +34,14 @@ interface ImageReference {
   count: number;
 }
 
+interface PendingAttachmentFile {
+  uri: vscode.Uri;
+  documentUri: vscode.Uri;
+  timer?: ReturnType<typeof setTimeout>;
+}
+
+type AttachmentDeletionChoice = "deleteFile" | "keepFile" | "undoRemove";
+
 const DEFAULT_ATTACHMENT_FOLDER = ".attachments";
 const DEFAULT_WORKSPACE_PATH = "attachments";
 const DEFAULT_ATTACHMENT_LOCATION_MODE: AttachmentLocationMode =
@@ -42,6 +50,8 @@ const DEFAULT_ALWAYS_USE_ORIGINAL_FILENAME = false;
 const DEFAULT_ALWAYS_CONFIRM_NAME_AND_PATH = false;
 const DEFAULT_ASK_BEFORE_DELETING_FILES = true;
 const DEFAULT_GENERATED_NAME_DIGITS = 9;
+const PENDING_UPLOAD_REFERENCE_CHECK_DELAY_MS = 3000;
+const PENDING_ATTACHMENT_DELETE_DELAY_MS = 5000;
 const LAST_ATTACHMENT_DIRECTORY_KEY = "mdeditor.lastAttachmentDirectory";
 const SAVED_ATTACHMENTS_KEY = "mdeditor.savedAttachments";
 const ATTACHMENT_SETTING_KEYS = [
@@ -69,7 +79,8 @@ const DEFAULT_ATTACHMENT_SETTINGS: Record<
 export class AttachmentManager {
   private _settingsSetupPromise: Promise<void> | undefined;
   private readonly _pendingDeletePrompts = new Set<string>();
-  private _pendingDeletions: Map<string, { uri: vscode.Uri; documentUri: vscode.Uri }> = new Map();
+  private readonly _pendingDeletions = new Map<string, PendingAttachmentFile>();
+  private readonly _pendingUploadedAttachments = new Map<string, PendingAttachmentFile>();
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -113,6 +124,7 @@ export class AttachmentManager {
     const bytes = Buffer.from(message.dataBase64, "base64");
     await vscode.workspace.fs.writeFile(fileUri, bytes);
     await this._rememberSavedAttachment(document.uri, fileUri);
+    this._trackPendingUploadedAttachment(document, fileUri);
 
     await this.context.workspaceState.update(
       LAST_ATTACHMENT_DIRECTORY_KEY,
@@ -136,6 +148,16 @@ export class AttachmentManager {
     return webview.asWebviewUri(fileUri).toString();
   }
 
+  resolveImageFilePath(
+    document: vscode.TextDocument,
+    src: string,
+  ): string {
+    if (this._isBrowserUrl(src)) return src;
+
+    const fileUri = this._resolveMarkdownImageUri(document.uri, src);
+    return fileUri.scheme === "file" ? fileUri.fsPath : fileUri.toString();
+  }
+
   async promptForDeletedAttachments(
     document: vscode.TextDocument,
     previousMarkdown: string,
@@ -144,46 +166,50 @@ export class AttachmentManager {
     if (previousMarkdown === nextMarkdown) return [];
 
     const settings = this._getSettings(document.uri);
-    if (!settings.askBeforeDeletingFiles) return [];
+    if (!settings.askBeforeDeletingFiles) {
+      this._clearReferencedPendingUploads(document.uri, nextMarkdown);
+      return [];
+    }
 
     const previousRefs = this._collectLocalImageReferences(
       document.uri,
       previousMarkdown,
     );
-    if (previousRefs.size === 0) return [];
-
     const nextRefs = this._collectLocalImageReferences(
       document.uri,
       nextMarkdown,
     );
 
     const deletedFiles: vscode.Uri[] = [];
+    const promptedKeys = new Set<string>();
 
     for (const [key, reference] of previousRefs) {
       if (nextRefs.has(key)) continue;
-      if (this._pendingDeletePrompts.has(key)) continue;
-      if (!(await this._shouldOfferAttachmentDeletion(document.uri, reference.uri))) {
-        continue;
+
+      promptedKeys.add(key);
+      const choice = await this._promptForAttachmentDeletion(
+        document,
+        reference.uri,
+        { allowUndoRemove: true },
+      );
+
+      if (choice === "undoRemove") {
+        await this._restoreMarkdown(document, previousMarkdown);
+        return deletedFiles;
       }
 
-      this._pendingDeletePrompts.add(key);
-      try {
-        const choice = await vscode.window.showWarningMessage(
-          `The attachment was removed from the Markdown document. Delete it from disk too?\n\n${this._displayUri(reference.uri)}`,
-          { modal: true },
-          "Delete File",
-          "Keep File",
-        );
-
-        if (choice !== "Delete File") continue;
-
-        // Track as pending deletion instead of deleting immediately
-        this._pendingDeletions.set(key, { uri: reference.uri, documentUri: document.uri });
+      if (choice === "deleteFile") {
         deletedFiles.push(reference.uri);
-      } finally {
-        this._pendingDeletePrompts.delete(key);
       }
     }
+
+    await this._promptForAbandonedUploadedAttachments(
+      document,
+      previousRefs,
+      nextRefs,
+      promptedKeys,
+      deletedFiles,
+    );
 
     return deletedFiles;
   }
@@ -196,43 +222,15 @@ export class AttachmentManager {
   async flushPendingDeletions(document: vscode.TextDocument): Promise<void> {
     if (this._pendingDeletions.size === 0) return;
 
-    const currentRefs = this._collectLocalImageReferences(
-      document.uri,
-      document.getText(),
-    );
+    const documentKey = this._documentRegistryKey(document.uri);
 
-    const toDelete: vscode.Uri[] = [];
-
-    for (const [key, info] of this._pendingDeletions) {
-      if (currentRefs.has(key)) {
-        // File is now referenced again (undo case) — clear the pending deletion
-        this._pendingDeletions.delete(key);
+    for (const [key, info] of [...this._pendingDeletions]) {
+      if (this._documentRegistryKey(info.documentUri) !== documentKey) {
         continue;
       }
 
-      // File is still unreferenced — mark for deletion
-      toDelete.push(info.uri);
+      await this._flushPendingDeletion(document, key);
     }
-
-    // Actually delete the files
-    for (const uri of toDelete) {
-      try {
-        await vscode.workspace.fs.delete(uri, {
-          recursive: false,
-          useTrash: true,
-        });
-        // Remove from saved attachments registry
-        const registry = this._savedAttachmentRegistry();
-        const documentKey = this._documentRegistryKey(toDelete[0].with({ scheme: 'file', path: document.uri.path.split('/').slice(0, -1).join('/') }));
-        // Just log — the registry cleanup is handled by _forgetSavedAttachment
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        void vscode.window.showErrorMessage(`Failed to delete attachment: ${message}`);
-      }
-    }
-
-    // Clear all pending deletions (they've been processed)
-    this._pendingDeletions.clear();
   }
 
   async collectDeletedAttachments(
@@ -511,37 +509,248 @@ export class AttachmentManager {
     );
   }
 
-  private async _promptAndDeleteAttachment(
+  private _trackPendingUploadedAttachment(
     document: vscode.TextDocument,
-    reference: ImageReference,
-  ): Promise<void> {
-    const displayPath = this._displayUri(reference.uri);
-    const choice = await vscode.window.showWarningMessage(
-      `The attachment was removed from the Markdown document. Delete it from disk too?\n\n${displayPath}`,
-      { modal: true },
-      "Delete File",
-      "Keep File",
-    );
+    fileUri: vscode.Uri,
+  ): void {
+    const key = this._canonicalUriKey(fileUri);
+    const existing = this._pendingUploadedAttachments.get(key);
+    if (existing?.timer) clearTimeout(existing.timer);
 
-    if (choice !== "Delete File") return;
+    const timer = setTimeout(() => {
+      void this._checkPendingUploadedAttachment(document, key).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("Failed to check pending uploaded attachment:", message);
+      });
+    }, PENDING_UPLOAD_REFERENCE_CHECK_DELAY_MS);
 
-    try {
-      const currentReferences = this._collectLocalImageReferences(
-        document.uri,
-        document.getText(),
-      );
-      if (currentReferences.has(this._canonicalUriKey(reference.uri))) {
-        return;
+    this._pendingUploadedAttachments.set(key, {
+      uri: fileUri,
+      documentUri: document.uri,
+      timer,
+    });
+  }
+
+  private _clearPendingUploadedAttachment(key: string): void {
+    const pending = this._pendingUploadedAttachments.get(key);
+    if (pending?.timer) clearTimeout(pending.timer);
+    this._pendingUploadedAttachments.delete(key);
+  }
+
+  private _clearReferencedPendingUploads(
+    markdownUri: vscode.Uri,
+    markdown: string,
+  ): void {
+    if (this._pendingUploadedAttachments.size === 0) return;
+
+    const documentKey = this._documentRegistryKey(markdownUri);
+    const refs = this._collectLocalImageReferences(markdownUri, markdown);
+
+    for (const [key, pending] of [...this._pendingUploadedAttachments]) {
+      if (this._documentRegistryKey(pending.documentUri) !== documentKey) {
+        continue;
       }
 
-      await vscode.workspace.fs.delete(reference.uri, {
-        recursive: false,
-        useTrash: true,
+      if (refs.has(key)) {
+        this._clearPendingUploadedAttachment(key);
+      }
+    }
+  }
+
+  private async _checkPendingUploadedAttachment(
+    document: vscode.TextDocument,
+    key: string,
+  ): Promise<void> {
+    const pending = this._pendingUploadedAttachments.get(key);
+    if (!pending) return;
+    if (
+      this._documentRegistryKey(pending.documentUri) !==
+      this._documentRegistryKey(document.uri)
+    ) {
+      return;
+    }
+
+    const settings = this._getSettings(document.uri);
+    if (!settings.askBeforeDeletingFiles) {
+      this._clearPendingUploadedAttachment(key);
+      return;
+    }
+
+    const currentRefs = this._collectLocalImageReferences(
+      document.uri,
+      document.getText(),
+    );
+
+    if (currentRefs.has(key)) {
+      this._clearPendingUploadedAttachment(key);
+      return;
+    }
+
+    await this._promptForAttachmentDeletion(document, pending.uri);
+    this._clearPendingUploadedAttachment(key);
+  }
+
+  private async _promptForAbandonedUploadedAttachments(
+    document: vscode.TextDocument,
+    previousRefs: Map<string, ImageReference>,
+    nextRefs: Map<string, ImageReference>,
+    promptedKeys: Set<string>,
+    deletedFiles: vscode.Uri[],
+  ): Promise<void> {
+    if (this._pendingUploadedAttachments.size === 0) return;
+
+    const documentKey = this._documentRegistryKey(document.uri);
+
+    for (const [key, pending] of [...this._pendingUploadedAttachments]) {
+      if (this._documentRegistryKey(pending.documentUri) !== documentKey) {
+        continue;
+      }
+
+      if (nextRefs.has(key)) {
+        this._clearPendingUploadedAttachment(key);
+        continue;
+      }
+
+      if (previousRefs.has(key) || promptedKeys.has(key)) {
+        this._clearPendingUploadedAttachment(key);
+        continue;
+      }
+
+      const choice = await this._promptForAttachmentDeletion(
+        document,
+        pending.uri,
+      );
+      if (choice === "deleteFile") {
+        deletedFiles.push(pending.uri);
+      }
+
+      this._clearPendingUploadedAttachment(key);
+    }
+  }
+
+  private async _promptForAttachmentDeletion(
+    document: vscode.TextDocument,
+    fileUri: vscode.Uri,
+    options: { allowUndoRemove?: boolean } = {},
+  ): Promise<AttachmentDeletionChoice> {
+    const key = this._canonicalUriKey(fileUri);
+    if (this._pendingDeletePrompts.has(key)) return "keepFile";
+    if (!(await this._shouldOfferAttachmentDeletion(document.uri, fileUri))) {
+      return "keepFile";
+    }
+
+    const deleteFile = "Delete File";
+    const keepFile = "Keep File";
+    const choices = [deleteFile, keepFile];
+
+    this._pendingDeletePrompts.add(key);
+    try {
+      const choice = await vscode.window.showWarningMessage(
+        [
+          "The attachment was removed from the Markdown document.",
+          options.allowUndoRemove
+            ? "Close this dialog to restore the image."
+            : "",
+          "",
+          this._displayUri(fileUri),
+        ].filter(Boolean).join("\n"),
+        { modal: true },
+        ...choices,
+      );
+
+      if (!choice && options.allowUndoRemove) {
+        return "undoRemove";
+      }
+
+      if (choice !== deleteFile) return "keepFile";
+
+      this._queuePendingDeletion(document, fileUri);
+      return "deleteFile";
+    } finally {
+      this._pendingDeletePrompts.delete(key);
+    }
+  }
+
+  private async _restoreMarkdown(
+    document: vscode.TextDocument,
+    markdown: string,
+  ): Promise<void> {
+    const edit = new vscode.WorkspaceEdit();
+    const range = new vscode.Range(
+      document.positionAt(0),
+      document.positionAt(document.getText().length),
+    );
+
+    edit.replace(document.uri, range, markdown);
+    await vscode.workspace.applyEdit(edit);
+  }
+
+  private _queuePendingDeletion(
+    document: vscode.TextDocument,
+    fileUri: vscode.Uri,
+  ): void {
+    const key = this._canonicalUriKey(fileUri);
+    const existing = this._pendingDeletions.get(key);
+    if (existing?.timer) clearTimeout(existing.timer);
+
+    const timer = setTimeout(() => {
+      void this._flushPendingDeletion(document, key).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        void vscode.window.showErrorMessage(
+          `Failed to delete attachment: ${message}`,
+        );
       });
-      await this._forgetSavedAttachment(document.uri, reference.uri);
+    }, PENDING_ATTACHMENT_DELETE_DELAY_MS);
+
+    this._pendingDeletions.set(key, {
+      uri: fileUri,
+      documentUri: document.uri,
+      timer,
+    });
+  }
+
+  private _clearPendingDeletion(key: string): void {
+    const pending = this._pendingDeletions.get(key);
+    if (pending?.timer) clearTimeout(pending.timer);
+    this._pendingDeletions.delete(key);
+  }
+
+  private async _flushPendingDeletion(
+    document: vscode.TextDocument,
+    key: string,
+  ): Promise<void> {
+    const info = this._pendingDeletions.get(key);
+    if (!info) return;
+    if (
+      this._documentRegistryKey(info.documentUri) !==
+      this._documentRegistryKey(document.uri)
+    ) {
+      return;
+    }
+
+    const currentRefs = this._collectLocalImageReferences(
+      document.uri,
+      document.getText(),
+    );
+
+    if (currentRefs.has(key)) {
+      this._clearPendingDeletion(key);
+      return;
+    }
+
+    try {
+      if (await this._isExistingFile(info.uri)) {
+        await vscode.workspace.fs.delete(info.uri, {
+          recursive: false,
+          useTrash: true,
+        });
+      }
+      await this._forgetSavedAttachment(info.documentUri, info.uri);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       void vscode.window.showErrorMessage(`Failed to delete attachment: ${message}`);
+    } finally {
+      this._clearPendingDeletion(key);
     }
   }
 

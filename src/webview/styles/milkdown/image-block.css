@@ -274,6 +274,7 @@
       align-items: center;
     }
   .milkdown .milkdown-image-block .image-wrapper .operation {
+      align-items: center;
       gap: 12px;
       right: 12px;
       top: 12px;
@@ -284,6 +285,12 @@
       opacity: 1;
     }
   .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      flex: 0 0 32px;
+      border: 0;
       color: var(--crepe-color-on-inverse);
       padding: 4px;
       background: var(--crepe-color-inverse);
@@ -291,6 +298,77 @@
       border-radius: 50%;
       width: 32px;
       height: 32px;
+      line-height: 1;
+    }
+  .milkdown .milkdown-image-block .image-wrapper .operation > button.operation-item {
+      appearance: none;
+      font: inherit;
+    }
+  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-zoom-button {
+      opacity: 0.92;
+    }
+  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-copy-path-button,
+  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-lock-button {
+      opacity: 0.92;
+    }
+  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-lock-button--locked {
+      color: var(--crepe-color-primary);
+      background: color-mix(
+        in srgb,
+        var(--crepe-color-primary),
+        transparent 84%
+      );
+    }
+  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-delete-button {
+      color: var(--crepe-color-error, #d13438);
+      background: color-mix(
+        in srgb,
+        var(--crepe-color-error, #d13438),
+        transparent 84%
+      );
+      opacity: 0.92;
+    }
+  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-delete-button:disabled {
+      cursor: not-allowed;
+      color: color-mix(
+        in srgb,
+        var(--crepe-color-error, #d13438),
+        transparent 48%
+      );
+      background: color-mix(
+        in srgb,
+        var(--crepe-color-error, #d13438),
+        transparent 90%
+      );
+      opacity: 0.7;
+    }
+  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-zoom-button:hover,
+  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-copy-path-button:hover,
+  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-lock-button:hover {
+      opacity: 1;
+    }
+  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-delete-button:not(:disabled):hover {
+      background: color-mix(
+        in srgb,
+        var(--crepe-color-error, #d13438),
+        transparent 76%
+      );
+      opacity: 1;
+    }
+  .milkdown .milkdown-image-block.md-image-block-locked > .image-wrapper::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      outline: 2px solid color-mix(
+        in srgb,
+        var(--crepe-color-primary),
+        transparent 36%
+      );
+      outline-offset: -2px;
+    }
+  .md-editor-readonly .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-action-button {
+      display: none !important;
     }
   .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item svg {
         width: 24px;

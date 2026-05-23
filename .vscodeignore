@@ -13,6 +13,8 @@ out/**
 .github/**
 .vscode
 .vscode/**
+docs
+docs/**
 .gitignore
 .attachments
 .attachments/**

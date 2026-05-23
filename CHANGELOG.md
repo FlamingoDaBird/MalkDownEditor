@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.1 - 2026-05-23
+
+Stability, image handling, and project quality release.
+
+- Fixed image lightbox selection persistence after close.
+- Made attachment deletion undo-safe by delaying file removal and clearing pending deletions when image references are restored.
+- Prompt for cleanup when a newly pasted/uploaded image is undone before it remains referenced in Markdown.
+- Fixed image deletion after zoom/lightbox so confirmed deletion flushes even when no later edit happens.
+- Blocked direct image dragging to avoid accidental duplicate attachment files; image blocks should be moved with the block handle.
+- Added image hover controls for zoom, copy path, lock/unlock, and delete.
+- Added lightbox zoom controls: wheel zoom, left-click reset, right-click/Escape close, and Delete/Backspace blocking while zoomed.
+- Fixed an image-control `MutationObserver` loop that could mount the editor but prevent the webview from painting.
+- Added MD Editor output-channel startup diagnostics and fatal startup reporting.
+- Made MD Editor opt-in for Markdown files instead of the default editor.
+- Added automated tests with `npm test`, `npm run verify`, unit/regression coverage, fixture integrity checks, and manual verification docs.
+- Moved working docs into `docs/` and generated VSIX packages into ignored `artifacts/`.
+
 ## 0.1.0 - 2026-05-19
 
 First packaged preview release.
@@ -16,10 +33,3 @@ First packaged preview release.
 - Session-local read-only mode with title-bar lock toggle.
 - GitHub pre-release with installable VSIX asset.
 - Project documentation includes an AI assistance disclosure.
-
-## 0.1.1 - 2026-05-23
-
-Bug fixes and improvements:
-
-- **Image Lightbox: fixed image staying selected after closing** — closing the lightbox (Escape, ×, or overlay click) now restores the cursor position so the image is deselected and can be clicked again without first clicking elsewhere.
-- **Attachment deletion now respects undo (Ctrl+Z)** — when you delete an image and confirm deletion, the file is tracked as "pending deletion" rather than deleted immediately. If you press Ctrl+Z to undo the edit, the pending deletion is cleared and the file is kept. The file is only actually deleted when you make another edit that still doesn't reference it.

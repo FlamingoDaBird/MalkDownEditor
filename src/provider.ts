@@ -4,6 +4,7 @@ import { AttachmentManager } from "./attachments";
 import { parseMarkdownToStructure } from "./utils/markdown-parser";
 import type {
   CodeBlockSettings,
+  CopyAttachmentPathMessage,
   DateTimeAction,
   DateTimeSettings,
   HostToWebviewMessage,
@@ -43,10 +44,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private readonly _attachments: AttachmentManager;
   private readonly _bridges = new Map<string, WebviewBridge>();
   private readonly _readOnlyStates = new Map<string, boolean>();
+  private readonly _output: vscode.OutputChannel;
 
   constructor(readonly context: vscode.ExtensionContext) {
     MarkdownEditorProvider._instance = this;
     this._attachments = new AttachmentManager(context);
+    this._output = vscode.window.createOutputChannel("MD Editor");
     this._statusBar = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
       100,
@@ -54,13 +57,15 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     this._statusBar.text = "$(markdown) MD Editor";
     this._statusBar.command = "mdeditor.open";
     this._statusBar.show();
-    context.subscriptions.push(this._statusBar);
+    context.subscriptions.push(this._statusBar, this._output);
   }
 
   async resolveCustomTextEditor(
     document: vscode.TextDocument,
     webviewPanel: vscode.WebviewPanel,
   ): Promise<void> {
+    this._log(`Resolving custom editor for ${document.uri.fsPath || document.uri.toString()}`);
+
     const localResourceRoots = this._getLocalResourceRoots(document);
     webviewPanel.webview.options = {
       enableScripts: true,
@@ -89,23 +94,30 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     let webviewReady = false;
     const sendInit = async () => {
-      const structure = await parseMarkdownToStructure(document.getText());
-      const version = document.version;
-      webviewReady = true;
+      try {
+        const structure = await parseMarkdownToStructure(document.getText());
+        const version = document.version;
+        webviewReady = true;
+        this._log(
+          `Sending init for version ${version}, ${structure.markdown.length} chars`,
+        );
 
-      bridge.postMessage({
-        type: "init",
-        markdown: structure.markdown,
-        version,
-        headers: structure.headers,
-        editable: !this._isReadOnly(document.uri),
-        readOnly: this._isReadOnly(document.uri),
-        theme: { name: theme },
-        themeClass,
-        dateTime: this._getDateTimeSettings(document.uri),
-        tables: this._getTableSettings(document.uri),
-        codeBlocks: this._getCodeBlockSettings(document.uri),
-      });
+        bridge.postMessage({
+          type: "init",
+          markdown: structure.markdown,
+          version,
+          headers: structure.headers,
+          editable: !this._isReadOnly(document.uri),
+          readOnly: this._isReadOnly(document.uri),
+          theme: { name: theme },
+          themeClass,
+          dateTime: this._getDateTimeSettings(document.uri),
+          tables: this._getTableSettings(document.uri),
+          codeBlocks: this._getCodeBlockSettings(document.uri),
+        });
+      } catch (error) {
+        this._postFatalError(bridge, "MD Editor failed to initialize", error);
+      }
     };
 
     // Listen for webview messages
@@ -115,13 +127,29 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           await this._applyEdit(document, message);
           break;
         case "ready":
+          this._log("Webview reported ready");
           await sendInit();
           break;
         case "save":
           await document.save();
           break;
         case "error":
+          this._log(`Webview error: ${message.message}`);
           console.error("MD Editor webview error:", message.message, message.stack);
+          break;
+        case "webviewBootLog":
+          this._log(
+            [
+              `Webview ${message.stage}: ${message.message}`,
+              message.details ? `details=${message.details}` : "",
+            ].filter(Boolean).join(" | "),
+          );
+          break;
+        case "editorMounted":
+          this._log(
+            `Webview editor mounted; version=${message.version}; markdownLength=${message.markdownLength}; visible=${webviewPanel.visible}; active=${webviewPanel.active}; viewColumn=${webviewPanel.viewColumn ?? "unknown"}`,
+          );
+          webviewPanel.reveal(webviewPanel.viewColumn, true);
           break;
         case "uploadAttachment":
           await this._handleAttachmentUpload(
@@ -132,12 +160,19 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           );
           break;
         case "resolveAttachmentSrc":
+          this._log(`Resolving attachment src: ${message.src}`);
           this._handleResolveAttachmentSrc(document, webviewPanel.webview, message, bridge);
+          break;
+        case "copyAttachmentPath":
+          await this._handleCopyAttachmentPath(document, message, bridge);
           break;
       }
     });
 
     webviewPanel.webview.html = this._getWebviewHtml(webviewPanel.webview);
+    this._log(
+      `Webview HTML assigned; visible=${webviewPanel.visible}; active=${webviewPanel.active}; viewColumn=${webviewPanel.viewColumn ?? "unknown"}`,
+    );
 
     // Sync on document changes
     const disposable = vscode.workspace.onDidChangeTextDocument(async (e) => {
@@ -173,10 +208,17 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       });
     });
 
+    const viewStateDisposable = webviewPanel.onDidChangeViewState((event) => {
+      this._log(
+        `View state changed; visible=${event.webviewPanel.visible}; active=${event.webviewPanel.active}; viewColumn=${event.webviewPanel.viewColumn ?? "unknown"}`,
+      );
+    });
+
     webviewPanel.onDidDispose(() => {
       disposable.dispose();
       settingsDisposable.dispose();
       messageDisposable.dispose();
+      viewStateDisposable.dispose();
       if (this._bridges.get(document.uri.toString()) === bridge) {
         this._bridges.delete(document.uri.toString());
       }
@@ -240,12 +282,17 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private _getWebviewHtml(webview: vscode.Webview): string {
     const fs = require("fs") as typeof import("fs");
     const htmlPath = path.join(this.context.extensionPath, "dist", "webview", "index.html");
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, "dist", "webview", "index.js")),
-    );
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, "dist", "webview", "index.css")),
-    );
+    const cacheBust = `v=${Date.now()}`;
+    const scriptUri = webview
+      .asWebviewUri(
+        vscode.Uri.file(path.join(this.context.extensionPath, "dist", "webview", "index.js")),
+      )
+      .with({ query: cacheBust });
+    const styleUri = webview
+      .asWebviewUri(
+        vscode.Uri.file(path.join(this.context.extensionPath, "dist", "webview", "index.css")),
+      )
+      .with({ query: cacheBust });
 
     let htmlContent = fs.readFileSync(htmlPath, "utf-8");
     htmlContent = htmlContent.replace(
@@ -254,10 +301,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     );
     htmlContent = htmlContent.replace(
       /<script[^>]*src="[^"]*index\.js"[^>]*><\/script>/,
-      `<script type="module" src="${scriptUri.toString()}"></script>`,
+      `<script id="md-editor-module-script" type="module" src="${scriptUri.toString()}"></script>`,
     );
 
     return htmlContent;
+  }
+
+  private _log(message: string): void {
+    this._output.appendLine(`[${new Date().toISOString()}] ${message}`);
   }
 
   private _getDateTimeSettings(resource: vscode.Uri): DateTimeSettings {
@@ -367,6 +418,46 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     } catch (error) {
       bridge.postMessage({
         type: "attachmentSrcResolved",
+        requestId: message.requestId,
+        ok: false,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private _postFatalError(
+    bridge: WebviewBridge,
+    context: string,
+    error: unknown,
+  ): void {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+
+    console.error(context, message, stack);
+    bridge.postMessage({
+      type: "fatalError",
+      message: `${context}: ${message}`,
+      stack,
+    });
+  }
+
+  private async _handleCopyAttachmentPath(
+    document: vscode.TextDocument,
+    message: CopyAttachmentPathMessage,
+    bridge: WebviewBridge,
+  ): Promise<void> {
+    try {
+      const filePath = this._attachments.resolveImageFilePath(document, message.src);
+      await vscode.env.clipboard.writeText(filePath);
+      bridge.postMessage({
+        type: "attachmentPathCopied",
+        requestId: message.requestId,
+        ok: true,
+        path: filePath,
+      });
+    } catch (error) {
+      bridge.postMessage({
+        type: "attachmentPathCopied",
         requestId: message.requestId,
         ok: false,
         message: error instanceof Error ? error.message : String(error),

@@ -166,8 +166,8 @@
 ### UI/UX Improvements
 
 - [x] **Showcase smoke document**
-  - [x] Add `SHOWCASE.md` as the source-of-truth feature showcase
-  - [x] Mirror `SHOWCASE.md` content into `tests/fixtures/test.md`
+  - [x] Add `docs/SHOWCASE.md` as the source-of-truth feature showcase
+  - [x] Mirror `docs/SHOWCASE.md` content into `tests/fixtures/test.md`
 
 - [ ] **Toolbar enhancements**
   - [ ] Customizable toolbar

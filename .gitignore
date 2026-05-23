@@ -3,6 +3,14 @@ dist/
 dist-types/
 out/
 .attachments/
+artifacts/
+!docs/.attachments/
+docs/.attachments/*
+!docs/.attachments/showcase-000000001.jpg
+!tests/fixtures/.attachments/
+tests/fixtures/.attachments/*
+!tests/fixtures/.attachments/showcase-000000001.jpg
+tests/.tmp/
 *.vsix
 
 *.log

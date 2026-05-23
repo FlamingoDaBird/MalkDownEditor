@@ -7,9 +7,122 @@
     <link rel="stylesheet" href="./index.css" />
   </head>
   <body>
-    <div id="editor">
-      <div class="md-editor-loading">Loading editor...</div>
-    </div>
-    <script type="module" src="./index.js"></script>
+    <div id="editor" aria-label="MD Editor"></div>
+    <script>
+      (function () {
+        var loading = document.querySelector(".md-editor-loading");
+        var vscodeApi;
+        var stringify = function (value) {
+          try {
+            if (value instanceof Error) return value.stack || value.message;
+            if (typeof value === "string") return value;
+            return JSON.stringify(value);
+          } catch (error) {
+            return String(value);
+          }
+        };
+        var postBootLog = function (stage, message, details) {
+          try {
+            if (!vscodeApi && typeof acquireVsCodeApi === "function") {
+              vscodeApi = window.__mdEditorVsCodeApi || acquireVsCodeApi();
+              window.__mdEditorVsCodeApi = vscodeApi;
+            }
+
+            if (!vscodeApi) return;
+
+            vscodeApi.postMessage({
+              type: "webviewBootLog",
+              stage: stage,
+              message: message,
+              details: details === undefined ? undefined : stringify(details),
+              timestamp: new Date().toISOString(),
+            });
+          } catch (error) {
+            if (loading) {
+              loading.textContent = "MD Editor log bridge failed: " + stringify(error);
+            }
+          }
+        };
+        var setLoadingText = function (message) {
+          if (loading) loading.textContent = message;
+          postBootLog("html-status", message);
+        };
+        var patchConsole = function () {
+          ["warn", "error"].forEach(function (level) {
+            var original = console[level];
+            console[level] = function () {
+              var args = Array.prototype.slice.call(arguments).map(stringify);
+              postBootLog("console." + level, args.join(" "));
+              original.apply(console, arguments);
+            };
+          });
+        };
+
+        window.__mdEditorBootLog = postBootLog;
+        patchConsole();
+        postBootLog("html-inline", "Inline boot script started", {
+          readyState: document.readyState,
+          userAgent: navigator.userAgent,
+          location: String(window.location),
+        });
+
+        setLoadingText("Starting MD Editor webview...");
+
+        window.addEventListener("error", function (event) {
+          setLoadingText("MD Editor script failed: " + (event.message || "Unknown error"));
+          postBootLog("window-error", event.message || "Unknown error", {
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+            error: event.error,
+          });
+        });
+
+        window.addEventListener("unhandledrejection", function (event) {
+          var reason = event.reason;
+          var message = reason && reason.message ? reason.message : String(reason || "Unknown error");
+          setLoadingText("MD Editor startup failed: " + message);
+          postBootLog("unhandled-rejection", message, reason);
+        });
+
+        window.addEventListener("DOMContentLoaded", function () {
+          postBootLog("dom-content-loaded", "DOM content loaded");
+        });
+      })();
+    </script>
+    <script id="md-editor-module-script" type="module" src="./index.js"></script>
+    <script>
+      (function () {
+        var postBootLog = window.__mdEditorBootLog || function () {};
+        var setLoadingText = function (message) {
+          var loading = document.querySelector(".md-editor-loading");
+          if (loading) loading.textContent = message;
+          postBootLog("html-status", message);
+        };
+
+        postBootLog("html-after-module-tag", "Inline script after module tag ran");
+
+        try {
+          var script = document.getElementById("md-editor-module-script");
+          if (!script) {
+            postBootLog("module-script-missing", "Module script tag was not found");
+            return;
+          }
+
+          postBootLog("module-script-found", "Module script tag found", {
+            src: script.src,
+          });
+          script.addEventListener("load", function () {
+            postBootLog("module-script-load", "Module script load event fired");
+          });
+          script.addEventListener("error", function (event) {
+            setLoadingText("MD Editor module failed to load.");
+            postBootLog("module-script-error", "Module script error event fired", event);
+          });
+        } catch (error) {
+          postBootLog("module-listener-error", "Failed to attach module listeners", error);
+        }
+      })();
+    </script>
   </body>
 </html>

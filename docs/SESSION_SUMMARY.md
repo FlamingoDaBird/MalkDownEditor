@@ -10,7 +10,7 @@
 - `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json ok')"`
 - `npm run typecheck`
 - `npm run build`
-- `cmp -s SHOWCASE.md tests/fixtures/test.md && echo synced`
+- `cmp -s docs/SHOWCASE.md tests/fixtures/test.md && echo synced`
 
 ---
 
@@ -139,7 +139,7 @@ Future task added: collapsible details / dropdown sections. The portable route i
 ### README / Naming Notes
 
 - `README.md` now explicitly credits Milkdown and Milkdown Crepe with upstream docs/API/GitHub links.
-- Extension naming is tracked as a future task in `FEATURES.md`.
+- Extension naming is tracked as a future task in `docs/FEATURES.md`.
 - Candidate names include `MilkMark`, `Crepe Markdown`, `Markflow`, `Markdown Studio`, `MellowMark`, `MD Canvas`, `WysiMark`, `Fluent Markdown`, `MalkMark`, `MalkDown`, and `MilkDown`.
 
 ### Date & Time Tools
@@ -175,8 +175,8 @@ Future task added: collapsible details / dropdown sections. The portable route i
 
 ### Showcase Smoke Document
 
-- Added `SHOWCASE.md` as the source-of-truth feature showcase / manual smoke document.
-- Mirrored `SHOWCASE.md` into `tests/fixtures/test.md` so the existing fixture path still works.
+- Added `docs/SHOWCASE.md` as the source-of-truth feature showcase / manual smoke document.
+- Mirrored `docs/SHOWCASE.md` into `tests/fixtures/test.md` so the existing fixture path still works.
 - The showcase includes visible Date & Time examples for `2026-05-18 16:04`.
 - The showcase documents the inline date/time slash shortcuts and the path/URL guard behavior.
 - The showcase now documents the read-only padlock state and code block visibility settings.
@@ -261,7 +261,7 @@ Recent cleanup:
 
 - removed empty placeholder folders from the project root
 - moved the smoke-test document to `tests/fixtures/test.md`
-- added root `SHOWCASE.md` as the source-of-truth smoke document and copied it to `tests/fixtures/test.md`
+- added `docs/SHOWCASE.md` as the source-of-truth smoke document and copied it to `tests/fixtures/test.md`
 - removed unreferenced test attachment artifacts from the root `.attachments/` folder
 - updated `.gitignore` and `.vscodeignore`
 - consolidated the host/webview protocol into `src/shared/protocol.ts`
@@ -303,7 +303,7 @@ Remaining polish:
 
 When resuming after reboot, start here:
 
-1. Read `SESSION_SUMMARY.md`, `FEATURES.md`, and `README.md`.
+1. Read `docs/SESSION_SUMMARY.md`, `docs/FEATURES.md`, and `README.md`.
 2. Smoke-test the interaction polish from the Extension Development Host:
    - open/closed read-only padlock state in the editor title
    - slash menu and block `+` menu open reliably
@@ -322,7 +322,7 @@ When resuming after reboot, start here:
    - `npm run typecheck`
    - `npm run build`
    - `npm run package:vsix` before creating a GitHub release
-6. Keep `SHOWCASE.md` and `tests/fixtures/test.md` synchronized. Use either for manual smoke testing in the Extension Development Host.
+6. Keep `docs/SHOWCASE.md` and `tests/fixtures/test.md` synchronized. Use either for manual smoke testing in the Extension Development Host.
 7. Latest docs/status checkpoint was saved on `2026-05-19` after publishing the first GitHub pre-release.
 
 Current git note: `main` tracks `origin/main`. The initial code commit, release-prep commit, and final documentation/status checkpoint have been committed and pushed.
@@ -353,5 +353,5 @@ tests/fixtures/test.md        # Manual smoke-test Markdown document
 package.json                  # Contributions, commands, settings
 CHANGELOG.md                  # Release notes
 LICENSE                       # Apache License 2.0
-FEATURES.md                   # Roadmap
+docs/FEATURES.md              # Roadmap
 ```

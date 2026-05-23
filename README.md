@@ -45,7 +45,7 @@ code .
 2. Click "MD Editor" button in the title bar OR press `Ctrl+Shift+P` and type "Open With...", then select "MD Editor"
 3. You should see the Milkdown Crepe editor
 
-The source-of-truth smoke document is `SHOWCASE.md`. A copy lives at `tests/fixtures/test.md`.
+The source-of-truth smoke document is `docs/SHOWCASE.md`. A copy lives at `tests/fixtures/test.md`.
 
 ## Features
 
@@ -114,34 +114,34 @@ Click the "MD Editor" button again to toggle back to the raw Markdown editor.
 
 The installable VS Code extension file is a `.vsix` file.
 
-The first packaged preview release is published as a GitHub pre-release:
+The latest packaged preview release is published as a GitHub release:
 
-- [v0.1.0 release](https://github.com/FlamingoDaBird/MalkDownEditor/releases/tag/v0.1.0)
-- Installable asset: `md-editor-0.1.0.vsix`
+- [v0.1.1 release](https://github.com/FlamingoDaBird/MalkDownEditor/releases/tag/v0.1.1)
+- Installable asset: `md-editor-0.1.1.vsix`
 
 ```bash
 npm run typecheck
 npm run package:vsix
 ```
 
-That creates a versioned package such as `md-editor-0.1.0.vsix` in the repository root.
+That creates a versioned package such as `artifacts/md-editor-0.1.1.vsix`.
 
 To test the packaged extension locally:
 
 ```bash
-code --install-extension md-editor-0.1.0.vsix
+code --install-extension artifacts/md-editor-0.1.1.vsix
 ```
 
 For a GitHub release:
 
-1. Create and push a version tag, for example `git tag v0.1.0 && git push origin v0.1.0`.
+1. Create and push a version tag, for example `git tag v0.1.1 && git push origin v0.1.1`.
 2. In GitHub, open Releases, draft a new release from that tag, and upload the `.vsix` file as a release asset.
 3. Use `CHANGELOG.md` as the release notes source.
 
 If the GitHub CLI is installed and authenticated, the release can also be created with:
 
 ```bash
-gh release create v0.1.0 md-editor-0.1.0.vsix --title "MD Editor 0.1.0" --notes-file CHANGELOG.md
+gh release create v0.1.1 artifacts/md-editor-0.1.1.vsix --title "MD Editor 0.1.1" --notes-file CHANGELOG.md
 ```
 
 ## Settings
@@ -224,7 +224,7 @@ Supported format tokens include `yyyy`, `yy`, `MM`, `M`, `dd`, `d`, `HH`, `H`, `
 - ✅ Code block language label and Copy button visibility settings
 - ✅ Configurable table insertion, table picker, toolbar, context menu, hover labels, settings, and table-cell slash menu actions
 - ✅ Date & Time Tools with configurable templates
-- ✅ `SHOWCASE.md` source-of-truth smoke document mirrored to `tests/fixtures/test.md`
+- ✅ `docs/SHOWCASE.md` source-of-truth smoke document mirrored to `tests/fixtures/test.md`
 - ✅ Editor title gear and context-menu shortcuts to MD Editor settings
 - ✅ Editor title read-only toggle with open/closed padlock state and fixed `READ ONLY` badge
 - ✅ VSIX packaging script and first `0.1.0` changelog
@@ -259,7 +259,7 @@ This starts a development server that automatically rebuilds on changes.
 
 ## Project Structure
 
-`README.md` is the best place for the stable, high-level folder overview. `SESSION_SUMMARY.md` is kept as the active working checkpoint for development sessions.
+`README.md` is the best place for the stable, high-level folder overview. `docs/SESSION_SUMMARY.md` is kept as the active working checkpoint for development sessions.
 
 ```
 VS-CODE-Plugin-MD-Editor/
@@ -282,15 +282,22 @@ VS-CODE-Plugin-MD-Editor/
 │       ├── bridge.ts               # VS Code webview message bridge
 │       └── styles/                 # Editor and Milkdown CSS
 ├── tests/
+│   ├── README.md                   # Automated test strategy and procedure
+│   ├── manual/                     # Manual VS Code verification checklist
+│   ├── unit/                       # Fast unit and regression tests
 │   └── fixtures/
-│       └── test.md                 # Copy of SHOWCASE.md for manual smoke testing
+│       └── test.md                 # Copy of docs/SHOWCASE.md for manual smoke testing
+├── docs/
+│   ├── README.md                   # Documentation map
+│   ├── BUGS.md                     # Active and resolved bug tracker
+│   ├── FEATURES.md                 # Feature checklist and roadmap
+│   ├── PROJECT_CHECKPOINT_GUIDE.md # Session checkpoint guidance
+│   ├── SESSION_SUMMARY.md          # Current working state
+│   └── SHOWCASE.md                 # Source-of-truth feature showcase / smoke document
 ├── dist/                           # Generated build output, ignored by git
+├── artifacts/                      # Generated VSIX packages, ignored by git
 ├── node_modules/                   # Installed dependencies, ignored by git
 ├── AGENTS.md                       # Agent/project working instructions
-├── FEATURES.md                     # Feature checklist and roadmap
-├── PROJECT_CHECKPOINT_GUIDE.md     # Session checkpoint guidance
-├── SESSION_SUMMARY.md              # Current working state
-├── SHOWCASE.md                     # Source-of-truth feature showcase / smoke document
 ├── CHANGELOG.md                    # Release notes
 ├── esbuild.mjs                     # Extension and webview build script
 ├── package.json                    # VS Code extension manifest
