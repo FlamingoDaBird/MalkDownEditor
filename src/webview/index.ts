@@ -2384,15 +2384,19 @@ function installImageLightbox(root: HTMLElement): void {
   lightboxImg = lightboxElement.querySelector<HTMLImageElement>("img")!;
 
   const closeLightbox = () => {
-    // Restore the saved selection to deselect the image
+    // Move cursor to the end of the selected image node to deselect it
     if (savedSelection && editor) {
       try {
-        const view = (editor as any).editorView;
-        if (view?.state) {
-          const Sel = view.state.selection.constructor;
-          const newSel = Sel.atStart?.(view.state.doc) ?? view.state.selection;
-          view.dispatch?.(view.state.setSelection(newSel));
-        }
+        editor.editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          const { state } = view;
+          if (savedSelection && savedSelection.from > 0 && savedSelection.from < state.doc.content.size) {
+            const resolved = state.doc.resolve(savedSelection.from + 1);
+            const tr = state.tr.setSelection(Selection.near(resolved, 1));
+            view.dispatch(tr);
+            view.focus();
+          }
+        });
       } catch {
         // Silently ignore — best effort only
       }
@@ -2426,13 +2430,15 @@ function installImageLightbox(root: HTMLElement): void {
       // Save current selection before opening lightbox
       if (editor) {
         try {
-          const view = (editor as any).editorView;
-          if (view?.state?.selection) {
-            savedSelection = {
-              from: view.state.selection.from,
-              to: view.state.selection.to,
-            };
-          }
+          editor.editor.action((ctx) => {
+            const view = ctx.get(editorViewCtx);
+            if (view?.state?.selection) {
+              savedSelection = {
+                from: view.state.selection.from,
+                to: view.state.selection.to,
+              };
+            }
+          });
         } catch {
           // Silently ignore
         }

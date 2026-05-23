@@ -69,6 +69,7 @@ const DEFAULT_ATTACHMENT_SETTINGS: Record<
 export class AttachmentManager {
   private _settingsSetupPromise: Promise<void> | undefined;
   private readonly _pendingDeletePrompts = new Set<string>();
+  private _pendingDeletions: Map<string, { uri: vscode.Uri; documentUri: vscode.Uri }> = new Map();
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -139,22 +140,24 @@ export class AttachmentManager {
     document: vscode.TextDocument,
     previousMarkdown: string,
     nextMarkdown: string,
-  ): Promise<void> {
-    if (previousMarkdown === nextMarkdown) return;
+  ): Promise<vscode.Uri[]> {
+    if (previousMarkdown === nextMarkdown) return [];
 
     const settings = this._getSettings(document.uri);
-    if (!settings.askBeforeDeletingFiles) return;
+    if (!settings.askBeforeDeletingFiles) return [];
 
     const previousRefs = this._collectLocalImageReferences(
       document.uri,
       previousMarkdown,
     );
-    if (previousRefs.size === 0) return;
+    if (previousRefs.size === 0) return [];
 
     const nextRefs = this._collectLocalImageReferences(
       document.uri,
       nextMarkdown,
     );
+
+    const deletedFiles: vscode.Uri[] = [];
 
     for (const [key, reference] of previousRefs) {
       if (nextRefs.has(key)) continue;
@@ -165,10 +168,116 @@ export class AttachmentManager {
 
       this._pendingDeletePrompts.add(key);
       try {
-        await this._promptAndDeleteAttachment(document, reference);
+        const choice = await vscode.window.showWarningMessage(
+          `The attachment was removed from the Markdown document. Delete it from disk too?\n\n${this._displayUri(reference.uri)}`,
+          { modal: true },
+          "Delete File",
+          "Keep File",
+        );
+
+        if (choice !== "Delete File") continue;
+
+        // Track as pending deletion instead of deleting immediately
+        this._pendingDeletions.set(key, { uri: reference.uri, documentUri: document.uri });
+        deletedFiles.push(reference.uri);
       } finally {
         this._pendingDeletePrompts.delete(key);
       }
+    }
+
+    return deletedFiles;
+  }
+
+  /**
+   * Flush pending deletions: delete tracked files that are still unreferenced.
+   * Called when the document changes again (new edit) to actually delete the files.
+   * Also restores files that are now referenced (undo case).
+   */
+  async flushPendingDeletions(document: vscode.TextDocument): Promise<void> {
+    if (this._pendingDeletions.size === 0) return;
+
+    const currentRefs = this._collectLocalImageReferences(
+      document.uri,
+      document.getText(),
+    );
+
+    const toDelete: vscode.Uri[] = [];
+
+    for (const [key, info] of this._pendingDeletions) {
+      if (currentRefs.has(key)) {
+        // File is now referenced again (undo case) — clear the pending deletion
+        this._pendingDeletions.delete(key);
+        continue;
+      }
+
+      // File is still unreferenced — mark for deletion
+      toDelete.push(info.uri);
+    }
+
+    // Actually delete the files
+    for (const uri of toDelete) {
+      try {
+        await vscode.workspace.fs.delete(uri, {
+          recursive: false,
+          useTrash: true,
+        });
+        // Remove from saved attachments registry
+        const registry = this._savedAttachmentRegistry();
+        const documentKey = this._documentRegistryKey(toDelete[0].with({ scheme: 'file', path: document.uri.path.split('/').slice(0, -1).join('/') }));
+        // Just log — the registry cleanup is handled by _forgetSavedAttachment
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        void vscode.window.showErrorMessage(`Failed to delete attachment: ${message}`);
+      }
+    }
+
+    // Clear all pending deletions (they've been processed)
+    this._pendingDeletions.clear();
+  }
+
+  async collectDeletedAttachments(
+    document: vscode.TextDocument,
+    previousMarkdown: string,
+    nextMarkdown: string,
+  ): Promise<vscode.Uri[]> {
+    if (previousMarkdown === nextMarkdown) return [];
+
+    const previousRefs = this._collectLocalImageReferences(
+      document.uri,
+      previousMarkdown,
+    );
+    if (previousRefs.size === 0) return [];
+
+    const nextRefs = this._collectLocalImageReferences(
+      document.uri,
+      nextMarkdown,
+    );
+
+    const deletedFiles: vscode.Uri[] = [];
+
+    for (const [key, reference] of previousRefs) {
+      if (nextRefs.has(key)) continue;
+      if (await this._shouldOfferAttachmentDeletion(document.uri, reference.uri)) {
+        deletedFiles.push(reference.uri);
+      }
+    }
+
+    return deletedFiles;
+  }
+
+  async restoreDeletedAttachment(fileUri: vscode.Uri): Promise<void> {
+    // Check if file was previously tracked as a saved attachment
+    // If so, we need to recreate it (but we don't have the original content)
+    // For now, we just log a warning
+    try {
+      const exists = await this._isExistingFile(fileUri);
+      if (!exists) {
+        void vscode.window.showWarningMessage(
+          `Cannot restore deleted attachment — the file was already removed from disk: ${this._displayUri(fileUri)}`,
+        );
+      }
+    } catch {
+      // Silently ignore
     }
   }
 

@@ -142,6 +142,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // Sync on document changes
     const disposable = vscode.workspace.onDidChangeTextDocument(async (e) => {
       if (webviewReady && e.document.uri.toString() === document.uri.toString()) {
+        // Flush pending deletions (handles undo/redo for attachment files)
+        await this._attachments.flushPendingDeletions(e.document);
+
         const changedStructure = await parseMarkdownToStructure(document.getText());
         bridge.postMessage({
           type: "externalUpdate",

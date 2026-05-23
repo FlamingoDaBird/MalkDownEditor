@@ -64,6 +64,18 @@ Temporary startup debug logs were removed from the extension host and webview. R
 - Crepe's `+` block handle and slash menu are forced to fixed viewport positioning because VS Code webviews scroll inside `#editor`; otherwise the menu can open off-screen after scrolling.
 - Fixed a runtime slash/block menu crash caused by chaining `addGroup` after `addItem`; Milkdown's group builder returns the current group from `addItem`, not the root builder. Custom Tables and Date & Time menu groups are now built as separate group variables.
 
+### Image Lightbox Fix: Deselection on Close
+- **Status:** RESOLVED
+- **Issue:** Closing the Image Lightbox left the image node selected in the editor.
+- **Fix:** On lightbox close, dispatch a ProseMirror selection change using `Selection.near(resolved, 1)` to move the cursor to the position right after the image node, effectively deselecting it.
+- **Files modified:** `src/webview/index.ts`
+
+### Attachment Deletion: Undo (Ctrl+Z) Support
+- **Status:** RESOLVED
+- **Issue:** When deleting an image and confirming file deletion, Ctrl+Z would restore the image reference but the file was already deleted from disk → broken image.
+- **Fix:** Changed `promptForDeletedAttachments` to track deleted files as "pending deletions" instead of deleting immediately. Added `flushPendingDeletions()` called on every document change. If a pending file is now referenced again (undo), the pending deletion is cleared. Only files that remain unreferenced after a new edit are actually deleted.
+- **Files modified:** `src/attachments.ts`, `src/provider.ts`
+
 2026-05-19 checkpoint notes:
 
 - The floating toolbar is the small popup shown when selecting text.

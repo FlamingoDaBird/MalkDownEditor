@@ -22,3 +22,4 @@ First packaged preview release.
 Bug fixes and improvements:
 
 - **Image Lightbox: fixed image staying selected after closing** — closing the lightbox (Escape, ×, or overlay click) now restores the cursor position so the image is deselected and can be clicked again without first clicking elsewhere.
+- **Attachment deletion now respects undo (Ctrl+Z)** — when you delete an image and confirm deletion, the file is tracked as "pending deletion" rather than deleted immediately. If you press Ctrl+Z to undo the edit, the pending deletion is cleared and the file is kept. The file is only actually deleted when you make another edit that still doesn't reference it.
