@@ -2,7 +2,7 @@
 
 This is the source-of-truth smoke document for MD Editor. Keep this file and `tests/fixtures/test.md` in sync.
 
-Last updated: 2026-05-19 00:20
+Last updated: 2026-05-23 15:44
 
 ## 1. WYSIWYG Editing
 
@@ -178,7 +178,15 @@ Expected behavior:
 - Generated names use the Markdown filename plus a padded counter.
 - Removing a local attachment image can prompt to delete the file from disk.
 
-## 11. Keyboard Shortcuts
+## 11. Image Lightbox
+
+Click any block image in MD Editor to open a full-screen lightbox overlay. The image is centered with a darkened backdrop and smooth fade transitions. Close by clicking the overlay, pressing `Escape`, or hitting the × button.
+
+![Flamingo loves shrimp](.attachments/showcase-000000001.jpg)
+
+*Pixel art flamingo — click the image above to see the lightbox in action!*
+
+## 12. Keyboard Shortcuts
 
 Try these:
 

@@ -117,7 +117,7 @@
   - [x] Single rich attachment popup with a Generate Name button
   - [x] Attachment save success/error feedback
   - [ ] Image upload to remote storage (future)
-  - [ ] Image zoom/preview dialog
+  - [x] **Image zoom/preview dialog** — click any block image to open a full-screen lightbox overlay; close with overlay click, Escape, or × button
 
 - [ ] **Live preview toggle**
   - [ ] Split view (editor + preview)

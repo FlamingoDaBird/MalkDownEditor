@@ -2315,6 +2315,7 @@ async function mountEditor(markdown: string): Promise<void> {
   applyReadOnlyMode(readOnlyMode);
   installGeneratedControlLabels(document.body);
   installTableControls(root);
+  installImageLightbox(root);
 
   // Sync changes back to host when markdown is updated
   editor.on((api) => {
@@ -2363,6 +2364,94 @@ function ensureToastContainer(): HTMLElement {
   container.className = "md-editor-toast-container";
   document.body.appendChild(container);
   return container;
+}
+
+let lightboxElement: HTMLElement | null = null;
+let lightboxImg: HTMLImageElement | null = null;
+let savedSelection: { from: number; to: number } | null = null;
+
+function installImageLightbox(root: HTMLElement): void {
+  // Create lightbox overlay once
+  lightboxElement = document.createElement("div");
+  lightboxElement.className = "md-editor-lightbox";
+  lightboxElement.style.display = "none";
+  lightboxElement.innerHTML = `
+    <button class="md-editor-lightbox-close" aria-label="Close">&times;</button>
+    <img src="" alt="Preview" />
+  `;
+  document.body.appendChild(lightboxElement);
+
+  lightboxImg = lightboxElement.querySelector<HTMLImageElement>("img")!;
+
+  const closeLightbox = () => {
+    // Restore the saved selection to deselect the image
+    if (savedSelection && editor) {
+      try {
+        const view = (editor as any).editorView;
+        if (view?.state) {
+          const Sel = view.state.selection.constructor;
+          const newSel = Sel.atStart?.(view.state.doc) ?? view.state.selection;
+          view.dispatch?.(view.state.setSelection(newSel));
+        }
+      } catch {
+        // Silently ignore — best effort only
+      }
+    }
+    savedSelection = null;
+
+    lightboxElement?.classList.remove("active");
+    setTimeout(() => {
+      lightboxElement!.style.display = "none";
+      lightboxImg!.src = "";
+    }, 200);
+  };
+
+  lightboxElement.querySelector<HTMLButtonElement>(".md-editor-lightbox-close")!.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeLightbox();
+  });
+
+  lightboxElement.addEventListener("click", (e) => {
+    if (e.target === lightboxElement) {
+      closeLightbox();
+    }
+  });
+
+  root.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "IMG" && target.closest(".milkdown-image-block")) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Save current selection before opening lightbox
+      if (editor) {
+        try {
+          const view = (editor as any).editorView;
+          if (view?.state?.selection) {
+            savedSelection = {
+              from: view.state.selection.from,
+              to: view.state.selection.to,
+            };
+          }
+        } catch {
+          // Silently ignore
+        }
+      }
+
+      const src = target.getAttribute("src");
+      if (src) {
+        lightboxImg!.src = src;
+        lightboxElement!.style.display = "flex";
+        requestAnimationFrame(() => lightboxElement!.classList.add("active"));
+      }
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && lightboxElement?.classList.contains("active")) {
+      closeLightbox();
+    }
+  });
 }
 
 async function updateEditor(markdown: string): Promise<void> {

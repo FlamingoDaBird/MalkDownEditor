@@ -16,3 +16,9 @@ First packaged preview release.
 - Session-local read-only mode with title-bar lock toggle.
 - GitHub pre-release with installable VSIX asset.
 - Project documentation includes an AI assistance disclosure.
+
+## 0.1.1 - 2026-05-23
+
+Bug fixes and improvements:
+
+- **Image Lightbox: fixed image staying selected after closing** — closing the lightbox (Escape, ×, or overlay click) now restores the cursor position so the image is deselected and can be clicked again without first clicking elsewhere.

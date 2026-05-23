@@ -298,6 +298,64 @@ body {
   color: var(--md-editor-selection-foreground) !important;
 }
 
+/* Image Lightbox */
+.md-editor-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--vscode-editor-background) 90%, black 10%);
+  backdrop-filter: blur(4px);
+  cursor: zoom-out;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.md-editor-lightbox.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.md-editor-lightbox img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  cursor: zoom-out;
+  transition: transform 0.2s ease;
+}
+
+.md-editor-lightbox.active img {
+  transform: scale(1);
+}
+
+.md-editor-lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--vscode-editor-background) 80%, white 20%);
+  color: var(--vscode-editor-foreground);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.md-editor-lightbox-close:hover {
+  opacity: 1;
+}
+
 /* Dropdown/select menus - force VS Code colors */
 .milkdown select,
 .milkdown option,

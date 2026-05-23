@@ -279,7 +279,11 @@ Remaining polish:
 - Manually smoke-test the read-only title action open/closed padlock state.
 - Manually smoke-test the slash menu and block `+` menu after the builder-chain fix.
 - Add image zoom/preview dialog.
-- Decide whether drag/drop and clipboard image paths need separate polish beyond Milkdown's upload hook.
+- Image zoom/preview dialog (lightbox)
+  - Click any block image → darkened overlay with full-size image centered
+  - Close via overlay click, Escape key, or × button
+  - Smooth fade transitions, theme-aware (dark/light/high-contrast)
+  - Zero extension host changes — pure webview-side
 
 ---
 
