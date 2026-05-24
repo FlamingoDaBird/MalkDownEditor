@@ -118,6 +118,39 @@ export interface SetReadOnlyMessage {
   readOnly: boolean;
 }
 
+export interface EditorDialogButton {
+  id: string;
+  label: string;
+  kind?: "secondary" | "primary" | "destructive";
+  placement?: "left" | "right";
+  default?: boolean;
+  cancel?: boolean;
+}
+
+export interface EditorDialogDetailSection {
+  label?: string;
+  text: string;
+  kind?: "normal" | "destructive";
+  monospace?: boolean;
+}
+
+export interface ShowEditorDialogMessage {
+  type: "showDialog";
+  requestId: string;
+  title: string;
+  body?: string[];
+  details?: string;
+  detailsSections?: EditorDialogDetailSection[];
+  detailsLabel?: string;
+  buttons: EditorDialogButton[];
+}
+
+export interface EditorDialogResultMessage {
+  type: "dialogResult";
+  requestId: string;
+  buttonId?: string;
+}
+
 export interface FatalErrorMessage {
   type: "fatalError";
   message: string;
@@ -152,6 +185,7 @@ export type HostToWebviewMessage =
   | RunDateTimeActionMessage
   | SettingsUpdatedMessage
   | SetReadOnlyMessage
+  | ShowEditorDialogMessage
   | FatalErrorMessage;
 export type WebviewToHostMessage =
   | EditMessage
@@ -162,4 +196,5 @@ export type WebviewToHostMessage =
   | EditorMountedMessage
   | UploadAttachmentMessage
   | ResolveAttachmentSrcMessage
-  | CopyAttachmentPathMessage;
+  | CopyAttachmentPathMessage
+  | EditorDialogResultMessage;

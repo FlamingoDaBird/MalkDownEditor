@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.2 - 2026-05-24
+
+Settings, documentation, attachment safety, and branding release.
+
+- Added original MalkDown Editor logo assets, marketplace icon, README logo variants, and compact editor-title icons.
+- Added `Now with vitamin R` and `CommonMark compliant` notes to the large logo variants.
+- Updated visible extension branding from MD Editor to MalkDown Editor while keeping stable extension IDs and `mdEditor.*` setting keys.
+- Added a visible block drag/drop insertion line so moved nodes show exactly where they will land.
+- Added a reusable in-editor modal dialog system with collapsed details, safe default focus, keyboard focus trapping, and destructive button styling.
+- Replaced the native attachment cleanup prompt with a clearer in-editor `Remove attachment?` dialog using `Cancel`, `Remove from Page`, `Move to Trash`, and `Delete Everywhere`.
+- Added recoverable attachment trash backed by a workspace-root `.attachments-trash` folder, preserved original paths, collision-safe filenames, and optional `index.json`.
+- Fixed a fallback leak where leaving the in-editor attachment cleanup dialog open for about five minutes could also open a native VS Code prompt.
+- Clarified attachment trash settings as workspace-root relative and documented the one-master-trash-folder behavior.
+- Reorganized VS Code settings into ordered categories: Appearance, Attachments, Tables, Code Blocks, and Date & Time.
+- Added user-facing docs for the user guide, settings reference, settings standards, and CommonMark compatibility while keeping the root README concise.
+- Included user-facing docs in packaged VSIX builds so README links resolve after installation.
+- Added a machine-readable settings taxonomy and tests that require every contributed setting to have metadata, documentation coverage, and source-side usage.
+- Added fast CommonMark/GFM checks for fenced-code headings, relative image links, table structure, and plain Markdown timestamp defaults.
+- Improved lightweight Markdown heading parsing so headings inside fenced code blocks are ignored.
+- Added roadmap entries for packaged-doc opening commands and an attachment orphan scanner.
+- Expanded automated coverage to 64 fast unit/regression tests.
+
 ## 0.1.1 - 2026-05-23
 
 Stability, image handling, and project quality release.

@@ -96,7 +96,7 @@ npm run verify
 1. Run `npm run watch` for auto-build
 2. Press `F5` in VS Code to launch Extension Development Host
 3. Open any `.md` file
-4. Click "MD Editor" in the title bar to switch to WYSIWYG mode
+4. Click "MalkDown Editor" in the title bar to switch to WYSIWYG mode
 
 ## Testing
 

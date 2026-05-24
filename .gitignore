@@ -3,6 +3,7 @@ dist/
 dist-types/
 out/
 .attachments/
+.attachments-trash/
 artifacts/
 !docs/.attachments/
 docs/.attachments/*

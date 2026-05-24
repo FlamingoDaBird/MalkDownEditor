@@ -1,6 +1,19 @@
 import * as path from "path";
 import * as vscode from "vscode";
-import type { UploadAttachmentMessage } from "./shared/protocol";
+import type { ShowEditorDialogMessage, UploadAttachmentMessage } from "./shared/protocol";
+import {
+  DEFAULT_ATTACHMENT_TRASH_ENABLED,
+  DEFAULT_ATTACHMENT_TRASH_FOLDER,
+  DEFAULT_ATTACHMENT_TRASH_PRESERVE_ORIGINAL_PATH,
+  DEFAULT_ATTACHMENT_TRASH_WRITE_INDEX,
+  buildTrashRelativePath,
+  executeAttachmentTrashMove,
+  normalizeRelativePath,
+  normalizeTrashRootPath,
+  shouldOfferAttachmentTrash,
+  shouldWriteAttachmentTrashIndex,
+  type AttachmentTrashSettings,
+} from "./utils/attachment-trash";
 
 type AttachmentLocationMode =
   | "markdown-folder"
@@ -16,6 +29,7 @@ interface AttachmentSettings {
   alwaysConfirmNameAndPath: boolean;
   askBeforeDeletingFiles: boolean;
   generatedNameDigits: number;
+  trash: AttachmentTrashSettings;
 }
 
 export interface SavedAttachment {
@@ -38,9 +52,19 @@ interface PendingAttachmentFile {
   uri: vscode.Uri;
   documentUri: vscode.Uri;
   timer?: ReturnType<typeof setTimeout>;
+  action?: AttachmentRemovalAction;
 }
 
-type AttachmentDeletionChoice = "deleteFile" | "keepFile" | "undoRemove";
+type AttachmentRemovalAction = "delete" | "trash";
+type AttachmentDeletionChoice =
+  | "deleteFile"
+  | "trashFile"
+  | "keepFile"
+  | "undoRemove";
+type EditorDialogPrompt = Omit<ShowEditorDialogMessage, "type" | "requestId">;
+type EditorDialogPromptHandler = (
+  dialog: EditorDialogPrompt,
+) => Promise<string | undefined>;
 
 const DEFAULT_ATTACHMENT_FOLDER = ".attachments";
 const DEFAULT_WORKSPACE_PATH = "attachments";
@@ -62,6 +86,10 @@ const ATTACHMENT_SETTING_KEYS = [
   "attachments.alwaysConfirmNameAndPath",
   "attachments.askBeforeDeletingFiles",
   "attachments.generatedNameDigits",
+  "attachments.trash.enabled",
+  "attachments.trash.folderName",
+  "attachments.trash.preserveOriginalPath",
+  "attachments.trash.writeIndex",
 ] as const;
 const DEFAULT_ATTACHMENT_SETTINGS: Record<
   (typeof ATTACHMENT_SETTING_KEYS)[number],
@@ -74,6 +102,10 @@ const DEFAULT_ATTACHMENT_SETTINGS: Record<
   "attachments.alwaysConfirmNameAndPath": DEFAULT_ALWAYS_CONFIRM_NAME_AND_PATH,
   "attachments.askBeforeDeletingFiles": DEFAULT_ASK_BEFORE_DELETING_FILES,
   "attachments.generatedNameDigits": DEFAULT_GENERATED_NAME_DIGITS,
+  "attachments.trash.enabled": DEFAULT_ATTACHMENT_TRASH_ENABLED,
+  "attachments.trash.folderName": DEFAULT_ATTACHMENT_TRASH_FOLDER,
+  "attachments.trash.preserveOriginalPath": DEFAULT_ATTACHMENT_TRASH_PRESERVE_ORIGINAL_PATH,
+  "attachments.trash.writeIndex": DEFAULT_ATTACHMENT_TRASH_WRITE_INDEX,
 };
 
 export class AttachmentManager {
@@ -162,6 +194,7 @@ export class AttachmentManager {
     document: vscode.TextDocument,
     previousMarkdown: string,
     nextMarkdown: string,
+    showDialog?: EditorDialogPromptHandler,
   ): Promise<vscode.Uri[]> {
     if (previousMarkdown === nextMarkdown) return [];
 
@@ -191,6 +224,7 @@ export class AttachmentManager {
         document,
         reference.uri,
         { allowUndoRemove: true },
+        showDialog,
       );
 
       if (choice === "undoRemove") {
@@ -198,7 +232,7 @@ export class AttachmentManager {
         return deletedFiles;
       }
 
-      if (choice === "deleteFile") {
+      if (choice === "deleteFile" || choice === "trashFile") {
         deletedFiles.push(reference.uri);
       }
     }
@@ -209,6 +243,7 @@ export class AttachmentManager {
       nextRefs,
       promptedKeys,
       deletedFiles,
+      showDialog,
     );
 
     return deletedFiles;
@@ -318,6 +353,24 @@ export class AttachmentManager {
           ),
         ),
       ),
+      trash: {
+        enabled: config.get<boolean>(
+          "attachments.trash.enabled",
+          DEFAULT_ATTACHMENT_TRASH_ENABLED,
+        ),
+        folderName: config.get<string>(
+          "attachments.trash.folderName",
+          DEFAULT_ATTACHMENT_TRASH_FOLDER,
+        ),
+        preserveOriginalPath: config.get<boolean>(
+          "attachments.trash.preserveOriginalPath",
+          DEFAULT_ATTACHMENT_TRASH_PRESERVE_ORIGINAL_PATH,
+        ),
+        writeIndex: config.get<boolean>(
+          "attachments.trash.writeIndex",
+          DEFAULT_ATTACHMENT_TRASH_WRITE_INDEX,
+        ),
+      },
     };
   }
 
@@ -357,7 +410,7 @@ export class AttachmentManager {
     resource: vscode.Uri,
   ): Promise<void> {
     const choice = await vscode.window.showInformationMessage(
-      "MD Editor attachment settings are not configured yet.",
+      "MalkDown Editor attachment settings are not configured yet.",
       {
         modal: true,
         detail: [
@@ -371,6 +424,9 @@ export class AttachmentManager {
           "",
           "Example:",
           "features-000000001.png",
+          "",
+          "Attachment trash:",
+          `${DEFAULT_ATTACHMENT_TRASH_FOLDER} in the workspace root`,
         ].join("\n"),
       },
       "Use Defaults",
@@ -596,6 +652,7 @@ export class AttachmentManager {
     nextRefs: Map<string, ImageReference>,
     promptedKeys: Set<string>,
     deletedFiles: vscode.Uri[],
+    showDialog?: EditorDialogPromptHandler,
   ): Promise<void> {
     if (this._pendingUploadedAttachments.size === 0) return;
 
@@ -619,8 +676,10 @@ export class AttachmentManager {
       const choice = await this._promptForAttachmentDeletion(
         document,
         pending.uri,
+        {},
+        showDialog,
       );
-      if (choice === "deleteFile") {
+      if (choice === "deleteFile" || choice === "trashFile") {
         deletedFiles.push(pending.uri);
       }
 
@@ -632,6 +691,7 @@ export class AttachmentManager {
     document: vscode.TextDocument,
     fileUri: vscode.Uri,
     options: { allowUndoRemove?: boolean } = {},
+    showDialog?: EditorDialogPromptHandler,
   ): Promise<AttachmentDeletionChoice> {
     const key = this._canonicalUriKey(fileUri);
     if (this._pendingDeletePrompts.has(key)) return "keepFile";
@@ -639,33 +699,161 @@ export class AttachmentManager {
       return "keepFile";
     }
 
-    const deleteFile = "Delete File";
-    const keepFile = "Keep File";
-    const choices = [deleteFile, keepFile];
+    const filename = this._basename(fileUri);
+    const cancel = "Cancel";
+    const removeFromPage = "Remove from Page";
+    const moveToTrash = "Move to Trash";
+    const deleteEverywhere = "Delete Everywhere";
+    const settings = this._getSettings(document.uri);
+    const trashRoot = settings.trash.enabled
+      ? this._resolveAttachmentTrashRoot(document.uri, settings)
+      : undefined;
+    const canMoveToTrash =
+      !!trashRoot && shouldOfferAttachmentTrash(settings.trash, fileUri.scheme);
+    const statusDetail = options.allowUndoRemove
+      ? "The attachment reference has been removed from the Markdown document. The file on disk has not been deleted yet."
+      : "This attachment is no longer referenced by the Markdown document. The file on disk has not been deleted yet.";
+    const detailSections: NonNullable<EditorDialogPrompt["detailsSections"]> = [
+      {
+        label: "Status",
+        text: statusDetail,
+      },
+      {
+        label: cancel,
+        text: options.allowUndoRemove
+          ? "Put the attachment reference back into the Markdown document."
+          : "Leave the file on disk.",
+      },
+      {
+        label: removeFromPage,
+        text: "Keep the Markdown change, but leave the file on disk.",
+      },
+    ];
+    if (canMoveToTrash) {
+      detailSections.push({
+        label: moveToTrash,
+        text: "Keep the Markdown change and move the file into the attachment trash so it can be recovered later.",
+      });
+    }
+    detailSections.push({
+      label: deleteEverywhere,
+      text: "Keep the Markdown change and delete the file from disk.",
+      kind: "destructive",
+    });
+    if (trashRoot) {
+      detailSections.push({
+        label: "Trash folder",
+        text: this._absoluteDisplayUri(trashRoot),
+        monospace: true,
+      });
+    }
+    detailSections.push({
+      label: "Full path",
+      text: this._absoluteDisplayUri(fileUri),
+      monospace: true,
+    });
+    const detail = detailSections
+      .map((section) => (
+        section.label
+          ? `${section.label}:\n${section.text}`
+          : section.text
+      ))
+      .join("\n\n");
+    const mapDialogResult = (buttonId: string | undefined): AttachmentDeletionChoice => {
+      if (buttonId === "deleteEverywhere") return "deleteFile";
+      if (buttonId === "moveToTrash" && canMoveToTrash) return "trashFile";
+      if (buttonId === "cancel" && options.allowUndoRemove) return "undoRemove";
+      return "keepFile";
+    };
 
     this._pendingDeletePrompts.add(key);
     try {
+      if (showDialog) {
+        const buttons: EditorDialogPrompt["buttons"] = [
+          {
+            id: "cancel",
+            label: cancel,
+            kind: "secondary",
+            placement: "left",
+            default: true,
+            cancel: true,
+          },
+          {
+            id: "removeFromPage",
+            label: removeFromPage,
+            kind: "secondary",
+            placement: "right",
+          },
+        ];
+        if (canMoveToTrash) {
+          buttons.push({
+            id: "moveToTrash",
+            label: moveToTrash,
+            kind: "primary",
+            placement: "right",
+          });
+        }
+        buttons.push({
+          id: "deleteEverywhere",
+          label: deleteEverywhere,
+          kind: "destructive",
+          placement: "right",
+        });
+
+        const buttonId = await showDialog({
+          title: "Remove attachment?",
+          body: [`File name: ${filename}`],
+          details: detail,
+          detailsSections: detailSections,
+          detailsLabel: "More details",
+          buttons,
+        });
+
+        if (buttonId !== undefined) {
+          const result = mapDialogResult(buttonId);
+          if (result === "deleteFile") {
+            this._queuePendingAttachmentRemoval(document, fileUri, "delete");
+          }
+          if (result === "trashFile") {
+            this._queuePendingAttachmentRemoval(document, fileUri, "trash");
+          }
+          return result;
+        }
+      }
+
+      const choices: vscode.MessageItem[] = [
+        { title: deleteEverywhere },
+        ...(canMoveToTrash ? [{ title: moveToTrash }] : []),
+        { title: removeFromPage },
+        { title: cancel, isCloseAffordance: true },
+      ];
+      const fallbackDetail = [
+        "This fallback native dialog cannot collapse details.",
+        "",
+        detail,
+      ].join("\n");
       const choice = await vscode.window.showWarningMessage(
-        [
-          "The attachment was removed from the Markdown document.",
-          options.allowUndoRemove
-            ? "Close this dialog to restore the image."
-            : "",
-          "",
-          this._displayUri(fileUri),
-        ].filter(Boolean).join("\n"),
-        { modal: true },
+        `Remove attachment?\n\nFile name: ${filename}`,
+        { modal: true, detail: fallbackDetail },
         ...choices,
       );
 
-      if (!choice && options.allowUndoRemove) {
-        return "undoRemove";
+      const result = mapDialogResult(
+        choice?.title === deleteEverywhere
+          ? "deleteEverywhere"
+          : choice?.title === moveToTrash
+            ? "moveToTrash"
+          : choice?.title === removeFromPage
+            ? "removeFromPage"
+            : "cancel",
+      );
+      if (result === "deleteFile") {
+        this._queuePendingAttachmentRemoval(document, fileUri, "delete");
       }
-
-      if (choice !== deleteFile) return "keepFile";
-
-      this._queuePendingDeletion(document, fileUri);
-      return "deleteFile";
+      if (result === "trashFile") {
+        this._queuePendingAttachmentRemoval(document, fileUri, "trash");
+      }
+      return result;
     } finally {
       this._pendingDeletePrompts.delete(key);
     }
@@ -685,9 +873,10 @@ export class AttachmentManager {
     await vscode.workspace.applyEdit(edit);
   }
 
-  private _queuePendingDeletion(
+  private _queuePendingAttachmentRemoval(
     document: vscode.TextDocument,
     fileUri: vscode.Uri,
+    action: AttachmentRemovalAction,
   ): void {
     const key = this._canonicalUriKey(fileUri);
     const existing = this._pendingDeletions.get(key);
@@ -697,7 +886,7 @@ export class AttachmentManager {
       void this._flushPendingDeletion(document, key).catch((error) => {
         const message = error instanceof Error ? error.message : String(error);
         void vscode.window.showErrorMessage(
-          `Failed to delete attachment: ${message}`,
+          `Failed to ${action === "trash" ? "move attachment to trash" : "delete attachment"}: ${message}`,
         );
       });
     }, PENDING_ATTACHMENT_DELETE_DELAY_MS);
@@ -706,6 +895,7 @@ export class AttachmentManager {
       uri: fileUri,
       documentUri: document.uri,
       timer,
+      action,
     });
   }
 
@@ -740,18 +930,132 @@ export class AttachmentManager {
 
     try {
       if (await this._isExistingFile(info.uri)) {
-        await vscode.workspace.fs.delete(info.uri, {
-          recursive: false,
-          useTrash: true,
-        });
+        if (info.action === "trash") {
+          await this._moveAttachmentToTrash(document, info.uri);
+        } else {
+          await vscode.workspace.fs.delete(info.uri, {
+            recursive: false,
+            useTrash: true,
+          });
+        }
       }
       await this._forgetSavedAttachment(info.documentUri, info.uri);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      void vscode.window.showErrorMessage(`Failed to delete attachment: ${message}`);
+      void vscode.window.showErrorMessage(
+        `Failed to ${info.action === "trash" ? "move attachment to trash" : "delete attachment"}: ${message}`,
+      );
     } finally {
       this._clearPendingDeletion(key);
     }
+  }
+
+  private async _moveAttachmentToTrash(
+    document: vscode.TextDocument,
+    fileUri: vscode.Uri,
+  ): Promise<void> {
+    const settings = this._getSettings(document.uri);
+    const trashRoot = this._resolveAttachmentTrashRoot(document.uri, settings);
+    if (!trashRoot) throw new Error("Attachment trash is not enabled.");
+
+    if (this._isEqualOrChildUri(fileUri, trashRoot)) {
+      return;
+    }
+
+    const relativeTrashPath = this._trashRelativeFilePath(
+      document.uri,
+      fileUri,
+      settings,
+    );
+    await executeAttachmentTrashMove({
+      document: document.uri,
+      source: fileUri,
+      trashRoot,
+      trashRelativePath: relativeTrashPath,
+      writeIndex: shouldWriteAttachmentTrashIndex(settings.trash),
+      fs: {
+        basename: (uri) => this._basename(uri),
+        dirname: (uri) => this._dirnameUri(uri),
+        join: (base, relativePath) => this._joinRelativePath(base, relativePath),
+        exists: (uri) => this._exists(uri),
+        createDirectory: (uri) =>
+          Promise.resolve(vscode.workspace.fs.createDirectory(uri)),
+        rename: (source, target) =>
+          Promise.resolve(
+            vscode.workspace.fs.rename(source, target, { overwrite: false }),
+          ),
+        readFile: async (uri) => {
+          try {
+            const bytes = await vscode.workspace.fs.readFile(uri);
+            return Buffer.from(bytes).toString("utf8");
+          } catch {
+            return undefined;
+          }
+        },
+        writeFile: (uri, contents) =>
+          Promise.resolve(
+            vscode.workspace.fs.writeFile(uri, Buffer.from(contents, "utf8")),
+          ),
+        toDisplayPath: (uri) => this._displayUri(uri),
+        toKey: (uri) => uri.toString(),
+      },
+    });
+  }
+
+  private _resolveAttachmentTrashRoot(
+    markdownUri: vscode.Uri,
+    settings: AttachmentSettings,
+  ): vscode.Uri | undefined {
+    if (!settings.trash.enabled) return undefined;
+
+    const trashPath = this._normalizeTrashRootPath(settings.trash.folderName);
+    const workspaceFolder =
+      vscode.workspace.getWorkspaceFolder(markdownUri) ??
+      vscode.workspace.workspaceFolders?.[0];
+    const root = workspaceFolder?.uri ?? this._dirnameUri(markdownUri);
+
+    return this._joinRelativePath(root, trashPath);
+  }
+
+  private _normalizeTrashRootPath(value: string): string {
+    return normalizeTrashRootPath(value, DEFAULT_ATTACHMENT_TRASH_FOLDER);
+  }
+
+  private _trashRelativeFilePath(
+    markdownUri: vscode.Uri,
+    fileUri: vscode.Uri,
+    settings: AttachmentSettings,
+  ): string {
+    const workspaceFolder =
+      vscode.workspace.getWorkspaceFolder(fileUri) ??
+      vscode.workspace.getWorkspaceFolder(markdownUri) ??
+      vscode.workspace.workspaceFolders?.[0];
+
+    let relativePath: string | undefined;
+    if (
+      workspaceFolder?.uri.scheme === "file" &&
+      fileUri.scheme === "file"
+    ) {
+      relativePath = path
+        .relative(workspaceFolder.uri.fsPath, fileUri.fsPath)
+        .split(path.sep)
+        .join("/");
+    }
+
+    if (!relativePath || relativePath.startsWith("../") || relativePath === "..") {
+      const documentBase = this._slugify(
+        this._basenameWithoutExtension(markdownUri),
+        "document",
+      );
+      relativePath = `${documentBase}/${this._basename(fileUri)}`;
+    }
+
+    return buildTrashRelativePath({
+      settings: settings.trash,
+      workspaceRelativePath: relativePath,
+      documentBaseName: this._basenameWithoutExtension(markdownUri),
+      filename: this._basename(fileUri),
+    });
   }
 
   private _managedAttachmentDirectories(markdownUri: vscode.Uri): vscode.Uri[] {
@@ -1298,6 +1602,12 @@ export class AttachmentManager {
     return basename.replace(/\.[mM][dD]$/, "");
   }
 
+  private _basename(uri: vscode.Uri): string {
+    return uri.scheme === "file"
+      ? path.basename(uri.fsPath)
+      : path.posix.basename(uri.path);
+  }
+
   private _slugify(value: string, fallback: string): string {
     return value
       .toLowerCase()
@@ -1314,16 +1624,7 @@ export class AttachmentManager {
   }
 
   private _normalizeRelativePath(value: string): string {
-    const raw = value.trim().replace(/\\/g, "/").replace(/^\/+/, "");
-    if (!raw) return "";
-
-    const normalized = path.posix.normalize(raw);
-    if (normalized === ".") return "";
-    if (normalized === ".." || normalized.startsWith("../")) {
-      throw new Error("Attachment path must stay inside the workspace.");
-    }
-
-    return normalized;
+    return normalizeRelativePath(value);
   }
 
   private _joinRelativePath(base: vscode.Uri, relativePath: string): vscode.Uri {
@@ -1381,6 +1682,10 @@ export class AttachmentManager {
       return path.relative(workspaceFolder.uri.fsPath, uri.fsPath).split(path.sep).join("/");
     }
 
+    return uri.scheme === "file" ? uri.fsPath : uri.toString();
+  }
+
+  private _absoluteDisplayUri(uri: vscode.Uri): string {
     return uri.scheme === "file" ? uri.fsPath : uri.toString();
   }
 

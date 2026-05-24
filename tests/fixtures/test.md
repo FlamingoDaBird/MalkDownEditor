@@ -1,14 +1,14 @@
-# MD Editor Showcase
+# MalkDown Editor Showcase
 
-This is the source-of-truth smoke document for MD Editor. Keep this file and `tests/fixtures/test.md` in sync.
+This is the source-of-truth smoke document for MalkDown Editor. Keep this file and `tests/fixtures/test.md` in sync.
 
 Last updated: 2026-05-23 15:44
 
 ## 1. WYSIWYG Editing
 
-Type normal Markdown here and switch between raw Markdown and MD Editor.
+Type normal Markdown here and switch between raw Markdown and MalkDown Editor.
 
-Use the `MD Editor` title-bar button to toggle between views.
+Use the `MalkDown Editor` title-bar button to toggle between views.
 
 ## 2. Text Formatting
 
@@ -62,7 +62,7 @@ Inline shortcuts:
 Try this workflow:
 
 1. Put the cursor on the `Last updated:` line near the top.
-2. Run `MD Editor: Update Last Updated Line`.
+2. Run `MalkDown Editor: Update Last Updated Line`.
 3. The line should update using the configured template.
 
 ## 4. Slash Menu
@@ -97,17 +97,17 @@ Try:
 
 ## 6. Read-Only Mode
 
-Use `MD Editor: Toggle Read-Only Mode` or the editor-title padlock icon. The title icon is open while editing is enabled and closed while read-only mode is active.
+Use `MalkDown Editor: Toggle Read-Only Mode` or the editor-title padlock icon. The title icon is open while editing is enabled and closed while read-only mode is active.
 
 Expected behavior:
 
 - A fixed `READ ONLY` badge stays visible while scrolling.
-- Editor content cannot be changed in MD Editor while read-only mode is active.
+- Editor content cannot be changed in MalkDown Editor while read-only mode is active.
 - Editing popups and table action menus are hidden while read-only mode is active.
 
 ## 7. Tables
 
-MD Editor keeps tables close to GitHub Flavored Markdown table behavior. Cell content is intended for paragraph/inline formatting, not nested block structures.
+MalkDown Editor keeps tables close to GitHub Flavored Markdown table behavior. Cell content is intended for paragraph/inline formatting, not nested block structures.
 
 Click inside a table to show the floating table toolbar.
 
@@ -169,7 +169,7 @@ console.log(message);
 
 ## 10. Attachments
 
-Drop or upload an image in MD Editor.
+Drop or upload an image in MalkDown Editor.
 
 Expected behavior:
 
@@ -180,7 +180,7 @@ Expected behavior:
 
 ## 11. Image Lightbox
 
-Click any block image in MD Editor to open a full-screen lightbox overlay. The image is centered with a darkened backdrop and smooth fade transitions. Close by clicking the overlay, pressing `Escape`, or hitting the × button.
+Click any block image in MalkDown Editor to open a full-screen lightbox overlay. The image is centered with a darkened backdrop and smooth fade transitions. Close by clicking the overlay, pressing `Escape`, or hitting the × button.
 
 ![Flamingo loves shrimp](.attachments/showcase-000000001.jpg)
 

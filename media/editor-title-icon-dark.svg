@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-label="MalkDown Editor">
+  <rect width="16" height="16" rx="2.4" fill="#d21f24" />
+  <path d="M0 2.25A2.25 2.25 0 0 1 2.25 0h11.5A2.25 2.25 0 0 1 16 2.25v.15H0Z" fill="#fffdf8" />
+  <path d="M1.35 14.15V4.45h1.9l2.2 3.45 2.2-3.45H9.5v9.7H7.7v-6l-1.8 2.75h-.85l-1.8-2.75v6Z" fill="#fffdf8" />
+  <path d="M12.95 4.3v6.45h2.25L12.45 15 9.7 10.75h2.25V4.3Z" fill="#fffdf8" />
+</svg>

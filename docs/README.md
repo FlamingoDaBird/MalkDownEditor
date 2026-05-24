@@ -5,10 +5,15 @@ This folder keeps project working documents out of the repository root while lea
 ## Files
 
 - `BUGS.md` - active and resolved bug tracker.
+- `COMMONMARK.md` - Markdown compatibility policy, known boundaries, and test expectations.
 - `FEATURES.md` - feature checklist and roadmap.
 - `PROJECT_CHECKPOINT_GUIDE.md` - guidance for saving development checkpoints.
+- `SETTINGS.md` - user-facing settings reference grouped by topic.
+- `SETTINGS_STANDARDS.md` - rules for adding settings and keeping terminology consistent.
+- `SETTINGS_TAXONOMY.json` - machine-readable settings inventory used by tests.
 - `SESSION_SUMMARY.md` - current working state for session resumption.
 - `SHOWCASE.md` - source-of-truth smoke Markdown document mirrored to `tests/fixtures/test.md`.
+- `USER_GUIDE.md` - user-facing guide for common editor workflows.
 - `.attachments/` - small tracked assets required by `SHOWCASE.md`.
 
 ## Root Files Kept Intentionally

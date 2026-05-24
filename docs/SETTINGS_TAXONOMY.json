@@ -1,0 +1,442 @@
+{
+  "schemaVersion": 1,
+  "allowedCategories": [
+    "Appearance",
+    "Attachments",
+    "Tables",
+    "Code Blocks",
+    "Date & Time",
+    "Editor Behavior",
+    "Advanced"
+  ],
+  "settings": {
+    "mdEditor.theme": {
+      "category": "Appearance",
+      "subgroup": "Theme",
+      "order": 10,
+      "label": "Theme",
+      "shortDescription": "Chooses the editor webview theme.",
+      "helpText": "Use this only when the editor webview should be forced to a specific dark, light, high-contrast, or default theme.",
+      "default": "vscode-dark",
+      "scope": "window",
+      "relatedUiLabels": [
+        "Theme support"
+      ],
+      "testCoverage": "settings-taxonomy.test.mjs validates metadata and package ordering.",
+      "compatibilityNotes": "Does not change Markdown output."
+    },
+    "mdEditor.attachments.locationMode": {
+      "category": "Attachments",
+      "subgroup": "Save Location",
+      "order": 10,
+      "label": "Location Mode",
+      "shortDescription": "Chooses where uploaded attachments are saved.",
+      "helpText": "Use the per-document .attachments folder for portable notes, the Markdown folder for flat folders, a workspace-relative folder for shared asset folders, or ask each time.",
+      "default": "markdown-folder-attachments",
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Attachment save prompt",
+        "Folder"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates supported setting combinations.",
+      "compatibilityNotes": "Saved Markdown uses relative links."
+    },
+    "mdEditor.attachments.folderName": {
+      "category": "Attachments",
+      "subgroup": "Save Location",
+      "order": 20,
+      "label": "Folder Name",
+      "shortDescription": "Names the folder created beside the Markdown file.",
+      "helpText": "Only applies when Location Mode is markdown-folder-attachments.",
+      "default": ".attachments",
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Attachment save prompt",
+        "Folder"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates folder-name behavior.",
+      "compatibilityNotes": "Existing attachment links are not rewritten by changing this setting."
+    },
+    "mdEditor.attachments.path": {
+      "category": "Attachments",
+      "subgroup": "Save Location",
+      "order": 30,
+      "label": "Workspace Path",
+      "shortDescription": "Sets the workspace-relative attachment folder.",
+      "helpText": "Only applies when Location Mode is workspace-relative-path. Use a relative path, not an absolute filesystem path.",
+      "default": "attachments",
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Attachment save prompt",
+        "Folder"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates path behavior.",
+      "compatibilityNotes": "Saved Markdown uses paths relative to the Markdown file."
+    },
+    "mdEditor.attachments.alwaysUseOriginalFilename": {
+      "category": "Attachments",
+      "subgroup": "File Naming",
+      "order": 40,
+      "label": "Use Original Filename",
+      "shortDescription": "Keeps uploaded filenames when possible.",
+      "helpText": "Existing files are never overwritten. MalkDown Editor still creates a safe unique filename when a collision exists.",
+      "default": false,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Use original name"
+      ],
+      "testCoverage": "attachment-trash-settings.test.mjs and settings-combinations.test.mjs cover attachment naming paths.",
+      "compatibilityNotes": "Does not change existing Markdown links."
+    },
+    "mdEditor.attachments.alwaysConfirmNameAndPath": {
+      "category": "Attachments",
+      "subgroup": "File Naming",
+      "order": 50,
+      "label": "Confirm Name And Path",
+      "shortDescription": "Asks before each attachment is saved.",
+      "helpText": "Shows the attachment save prompt so the folder, original-name choice, and generated filename can be reviewed.",
+      "default": false,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Attachment save prompt",
+        "Generate name"
+      ],
+      "testCoverage": "settings-combinations.test.mjs keeps the setting registered and covered by the matrix.",
+      "compatibilityNotes": "Does not change Markdown syntax."
+    },
+    "mdEditor.attachments.generatedNameDigits": {
+      "category": "Attachments",
+      "subgroup": "File Naming",
+      "order": 60,
+      "label": "Generated Name Digits",
+      "shortDescription": "Sets the number padding for generated filenames.",
+      "helpText": "For example, 9 digits creates filenames like features-000000001.png.",
+      "default": 9,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Generate name"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates default registration.",
+      "compatibilityNotes": "Existing generated filenames keep their current names."
+    },
+    "mdEditor.attachments.askBeforeDeletingFiles": {
+      "category": "Attachments",
+      "subgroup": "Removal Safety",
+      "order": 70,
+      "label": "Ask Before Deleting Files",
+      "shortDescription": "Confirms before a local attachment file can be deleted from disk.",
+      "helpText": "When an attachment reference is removed from the page, the cleanup dialog lets the user Cancel, Remove from Page, Move to Trash, or Delete Everywhere.",
+      "default": true,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Remove attachment?",
+        "Cancel",
+        "Remove from Page",
+        "Move to Trash",
+        "Delete Everywhere"
+      ],
+      "testCoverage": "attachment-dialog.test.mjs verifies cleanup copy and safe defaults.",
+      "compatibilityNotes": "Cancel restores the attachment reference in the Markdown document."
+    },
+    "mdEditor.attachments.trash.enabled": {
+      "category": "Attachments",
+      "subgroup": "Attachment Trash",
+      "order": 80,
+      "label": "Enable Attachment Trash",
+      "shortDescription": "Shows the recoverable Move to Trash action.",
+      "helpText": "When enabled, local attachment files can be moved into the attachment trash instead of being permanently deleted.",
+      "default": true,
+      "scope": "workspace",
+      "relatedUiLabels": [
+        "Move to Trash"
+      ],
+      "testCoverage": "attachment-trash-settings.test.mjs and attachment-trash-filesystem.test.mjs cover trash behavior.",
+      "compatibilityNotes": "Restore tooling is planned but not implemented yet."
+    },
+    "mdEditor.attachments.trash.folderName": {
+      "category": "Attachments",
+      "subgroup": "Attachment Trash",
+      "order": 90,
+      "label": "Workspace Trash Folder",
+      "shortDescription": "Sets the workspace-root relative attachment trash folder.",
+      "helpText": "The default .attachments-trash value creates one master attachment trash folder in the current workspace root. Absolute paths and paths outside the workspace are not supported for safety.",
+      "default": ".attachments-trash",
+      "scope": "workspace",
+      "relatedUiLabels": [
+        "Move to Trash"
+      ],
+      "testCoverage": "attachment-trash-settings.test.mjs validates safe folder fallback and sanitization.",
+      "compatibilityNotes": "Do not point this at the active attachment folder."
+    },
+    "mdEditor.attachments.trash.preserveOriginalPath": {
+      "category": "Attachments",
+      "subgroup": "Attachment Trash",
+      "order": 100,
+      "label": "Preserve Original Path",
+      "shortDescription": "Keeps the original workspace-relative folder path inside trash.",
+      "helpText": "This makes future restore tooling easier because trashed files remember where they came from.",
+      "default": true,
+      "scope": "workspace",
+      "relatedUiLabels": [
+        "Move to Trash"
+      ],
+      "testCoverage": "attachment-trash-filesystem.test.mjs validates preserved paths.",
+      "compatibilityNotes": "Collision-safe renaming still applies."
+    },
+    "mdEditor.attachments.trash.writeIndex": {
+      "category": "Attachments",
+      "subgroup": "Attachment Trash",
+      "order": 110,
+      "label": "Write Trash Index",
+      "shortDescription": "Writes an index entry when an attachment is moved to trash.",
+      "helpText": "The index records source and destination details for future restore and audit features.",
+      "default": true,
+      "scope": "workspace",
+      "relatedUiLabels": [
+        "Move to Trash"
+      ],
+      "testCoverage": "attachment-trash-filesystem.test.mjs validates index writes.",
+      "compatibilityNotes": "The index is JSON and may grow over time."
+    },
+    "mdEditor.tables.floatingToolbar": {
+      "category": "Tables",
+      "subgroup": "Table Controls",
+      "order": 10,
+      "label": "Floating Toolbar",
+      "shortDescription": "Shows the table toolbar inside tables.",
+      "helpText": "The toolbar contains quick row, column, and table actions.",
+      "default": true,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Floating table toolbar"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates table UI combinations.",
+      "compatibilityNotes": "Does not change Markdown output."
+    },
+    "mdEditor.tables.contextMenu": {
+      "category": "Tables",
+      "subgroup": "Table Controls",
+      "order": 20,
+      "label": "Right-Click Menu",
+      "shortDescription": "Enables the table right-click action menu.",
+      "helpText": "The menu contains the same row, column, and table actions as the toolbar.",
+      "default": true,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Table action menu"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates table UI combinations.",
+      "compatibilityNotes": "VS Code context-menu behavior may still limit empty-editor menus."
+    },
+    "mdEditor.tables.milkdownControls": {
+      "category": "Tables",
+      "subgroup": "Table Controls",
+      "order": 30,
+      "label": "Built-In Table Handles",
+      "shortDescription": "Shows Milkdown table handles and grid add controls.",
+      "helpText": "These are the built-in table handles used for selection, drag, alignment, and quick insertion.",
+      "default": true,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Table handles"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates table UI combinations.",
+      "compatibilityNotes": "This is a UI-only setting."
+    },
+    "mdEditor.tables.slashMenu": {
+      "category": "Tables",
+      "subgroup": "Table Controls",
+      "order": 40,
+      "label": "Table-Cell Slash Menu",
+      "shortDescription": "Enables slash actions inside table cells.",
+      "helpText": "Type / as the first character in a table cell to open table row, column, and delete actions.",
+      "default": true,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Table-cell slash menu"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates table UI combinations.",
+      "compatibilityNotes": "The menu intentionally opens only at the start of a table cell."
+    },
+    "mdEditor.tables.defaultRows": {
+      "category": "Tables",
+      "subgroup": "Insert Defaults",
+      "order": 50,
+      "label": "Default Rows",
+      "shortDescription": "Sets the default row count for Insert Table.",
+      "helpText": "Used when Insert Behavior is Use Default Size.",
+      "default": 3,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Insert Table",
+        "Insert Custom Table"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates default table dimensions.",
+      "compatibilityNotes": "Generated tables remain GFM Markdown tables."
+    },
+    "mdEditor.tables.defaultColumns": {
+      "category": "Tables",
+      "subgroup": "Insert Defaults",
+      "order": 60,
+      "label": "Default Columns",
+      "shortDescription": "Sets the default column count for Insert Table.",
+      "helpText": "Used when Insert Behavior is Use Default Size.",
+      "default": 3,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Insert Table",
+        "Insert Custom Table"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates default table dimensions.",
+      "compatibilityNotes": "Generated tables remain GFM Markdown tables."
+    },
+    "mdEditor.tables.insertBehavior": {
+      "category": "Tables",
+      "subgroup": "Insert Defaults",
+      "order": 70,
+      "label": "Insert Behavior",
+      "shortDescription": "Chooses whether Insert Table asks for size.",
+      "helpText": "Use Default Size inserts immediately. Ask Every Time opens the row and column picker.",
+      "default": "useDefaultSize",
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Insert Table",
+        "Insert Custom Table"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates insert behavior combinations.",
+      "compatibilityNotes": "Generated tables remain GFM Markdown tables."
+    },
+    "mdEditor.codeBlocks.alwaysShowLanguage": {
+      "category": "Code Blocks",
+      "subgroup": "Code Block Display",
+      "order": 10,
+      "label": "Always Show Language",
+      "shortDescription": "Keeps the code block language label visible.",
+      "helpText": "When disabled, the language label can be hidden until hover by the editor styling.",
+      "default": true,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Code block language"
+      ],
+      "testCoverage": "settings-combinations.test.mjs keeps the setting registered and covered by the matrix.",
+      "compatibilityNotes": "Does not change fenced code block Markdown."
+    },
+    "mdEditor.codeBlocks.alwaysShowCopyButton": {
+      "category": "Code Blocks",
+      "subgroup": "Code Block Display",
+      "order": 20,
+      "label": "Always Show Copy Button",
+      "shortDescription": "Keeps the code block Copy button visible.",
+      "helpText": "When disabled, the Copy button can be hidden until hover by the editor styling.",
+      "default": true,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Copy"
+      ],
+      "testCoverage": "settings-combinations.test.mjs keeps the setting registered and covered by the matrix.",
+      "compatibilityNotes": "Does not change fenced code block Markdown."
+    },
+    "mdEditor.dateTime.dateFormat": {
+      "category": "Date & Time",
+      "subgroup": "Formats",
+      "order": 10,
+      "label": "Date Format",
+      "shortDescription": "Sets the date format for timestamp tools.",
+      "helpText": "Supported date tokens include yyyy, yy, MM, M, dd, and d.",
+      "default": "yyyy-MM-dd",
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Insert Today's Date",
+        "Date & Time"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates date/time setting combinations.",
+      "compatibilityNotes": "Generated text is plain Markdown text."
+    },
+    "mdEditor.dateTime.timeFormat": {
+      "category": "Date & Time",
+      "subgroup": "Formats",
+      "order": 20,
+      "label": "Time Format",
+      "shortDescription": "Sets the time format for timestamp tools.",
+      "helpText": "Supported time tokens include HH, H, hh, h, mm, ss, and a.",
+      "default": "HH:mm",
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Insert Current Time",
+        "Date & Time"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates date/time setting combinations.",
+      "compatibilityNotes": "Generated text is plain Markdown text."
+    },
+    "mdEditor.dateTime.lastUpdatedTemplate": {
+      "category": "Date & Time",
+      "subgroup": "Templates",
+      "order": 30,
+      "label": "Last Updated Template",
+      "shortDescription": "Sets the template for Last Updated actions.",
+      "helpText": "Available placeholders are {date}, {time}, and {datetime}.",
+      "default": "Last updated: {date} {time}",
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Insert Last Updated",
+        "Update Last Updated Line"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates date/time setting combinations.",
+      "compatibilityNotes": "Generated text is plain Markdown text."
+    },
+    "mdEditor.dateTime.historyEntryTemplate": {
+      "category": "Date & Time",
+      "subgroup": "Templates",
+      "order": 40,
+      "label": "History Entry Template",
+      "shortDescription": "Sets the template for history entries.",
+      "helpText": "Available placeholders are {date}, {time}, and {datetime}.",
+      "default": "- {date} {time} - ",
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Insert History Entry"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates date/time setting combinations.",
+      "compatibilityNotes": "Generated text is plain Markdown list text by default."
+    },
+    "mdEditor.dateTime.customTemplate": {
+      "category": "Date & Time",
+      "subgroup": "Templates",
+      "order": 50,
+      "label": "Custom Timestamp Template",
+      "shortDescription": "Sets the template for custom timestamp snippets.",
+      "helpText": "Available placeholders are {date}, {time}, and {datetime}.",
+      "default": "{date} {time}",
+      "scope": "resource",
+      "relatedUiLabels": [
+        "Insert Custom Date/Time Snippet",
+        "Custom Timestamp"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates date/time setting combinations.",
+      "compatibilityNotes": "Generated text is plain Markdown text."
+    },
+    "mdEditor.dateTime.inlineSlashShortcuts": {
+      "category": "Date & Time",
+      "subgroup": "Shortcuts",
+      "order": 60,
+      "label": "Inline Slash Shortcuts",
+      "shortDescription": "Enables lightweight inline date/time shortcuts.",
+      "helpText": "Shortcuts such as /date, /time, /datetime, /updated, and /history are replaced only when accepted with Tab or Enter.",
+      "default": true,
+      "scope": "resource",
+      "relatedUiLabels": [
+        "/date",
+        "/time",
+        "/datetime",
+        "/updated",
+        "/history"
+      ],
+      "testCoverage": "settings-combinations.test.mjs validates date/time setting combinations.",
+      "compatibilityNotes": "Shortcuts are ignored inside URLs, paths, and words."
+    }
+  },
+  "futureCategories": {
+    "Editor Behavior": "Lock blocks, zoom behavior, selection behavior, drag behavior, and other editor interaction rules.",
+    "Advanced": "Low-level compatibility or migration settings that should be rare and clearly documented."
+  }
+}

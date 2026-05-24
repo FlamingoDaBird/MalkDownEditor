@@ -2,14 +2,20 @@
 @import 'prosemirror-virtual-cursor/style/virtual-cursor.css';
 
 .milkdown .crepe-drop-cursor {
-    background-color: color-mix(
-      in srgb,
-      var(--crepe-color-outline),
-      transparent 50%
-    );
-    opacity: 0.5;
-    transition: all 0.2s;
+    box-sizing: border-box;
+    border-radius: 999px;
+    background-color: var(--vscode-editorCursor-foreground, var(--crepe-color-primary));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--md-editor-background), transparent 20%),
+      0 0 0 4px color-mix(in srgb, var(--vscode-editorCursor-foreground, var(--crepe-color-primary)), transparent 70%);
+    opacity: 1;
+    transition:
+      width 90ms ease,
+      height 90ms ease,
+      transform 90ms ease,
+      opacity 90ms ease;
     pointer-events: none;
+    z-index: 1003;
   }
 
 .milkdown .ProseMirror-gapcursor:after {

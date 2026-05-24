@@ -34,13 +34,38 @@ test("docs README tracks moved project documentation", async () => {
 
   for (const filename of [
     "BUGS.md",
+    "COMMONMARK.md",
     "FEATURES.md",
     "PROJECT_CHECKPOINT_GUIDE.md",
+    "SETTINGS.md",
+    "SETTINGS_STANDARDS.md",
+    "SETTINGS_TAXONOMY.json",
     "SESSION_SUMMARY.md",
     "SHOWCASE.md",
+    "USER_GUIDE.md",
   ]) {
     assert.match(readme, new RegExp(filename.replace(".", "\\.")));
   }
+});
+
+test("root README stays a concise landing page and links detailed docs", async () => {
+  const readme = await readProjectFile("README.md");
+  const lineCount = readme.split("\n").length;
+
+  assert.ok(lineCount < 140, `README should stay concise, found ${lineCount} lines`);
+  assert.match(readme, /docs\/USER_GUIDE\.md/);
+  assert.match(readme, /docs\/SETTINGS\.md/);
+  assert.match(readme, /docs\/COMMONMARK\.md/);
+  assert.doesNotMatch(readme, /## Settings\n[\s\S]*mdEditor\.attachments\.locationMode/);
+});
+
+test("packaged extension keeps user-facing docs linked from README", async () => {
+  const vscodeIgnore = await readProjectFile(".vscodeignore");
+
+  assert.doesNotMatch(vscodeIgnore, /^docs$/m);
+  assert.doesNotMatch(vscodeIgnore, /^docs\/\*\*$/m);
+  assert.match(vscodeIgnore, /^docs\/PROJECT_CHECKPOINT_GUIDE\.md$/m);
+  assert.match(vscodeIgnore, /^docs\/SESSION_SUMMARY\.md$/m);
 });
 
 test("manual checklist documents VS Code-only verification gaps", async () => {

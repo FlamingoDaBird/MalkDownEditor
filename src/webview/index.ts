@@ -38,7 +38,9 @@ import type {
   CodeBlockSettings,
   DateTimeAction,
   DateTimeSettings,
+  EditorDialogButton,
   HostToWebviewMessage,
+  ShowEditorDialogMessage,
   TableSettings,
   WebviewToHostMessage,
 } from "../shared/protocol";
@@ -64,6 +66,9 @@ let tableSlashMenuActiveIndex = 0;
 let tableSlashMenuVisibleItems: TableActionItem[] = [];
 let imageDeleteControlsCleanup: (() => void) | undefined;
 let imageLightboxCleanup: (() => void) | undefined;
+let activeEditorDialog:
+  | { requestId: string; cancelButtonId?: string; close: (buttonId?: string) => void }
+  | undefined;
 const lockedImageSources = new Set<string>();
 let readOnlyMode = false;
 let readOnlyBadgeElement: HTMLElement | undefined;
@@ -125,11 +130,11 @@ let initWatchdog: number | undefined = window.setTimeout(() => {
 
   showFatalError(
     new Error(
-      "MD Editor did not receive initialization from the extension host.",
+      "MalkDown Editor did not receive initialization from the extension host.",
     ),
   );
 }, 15000);
-setLoadingStatus("MD Editor script loaded. Waiting for extension host...");
+setLoadingStatus("MalkDown Editor script loaded. Waiting for extension host...");
 
 const quoteToolbarIcon = `
   <svg
@@ -632,7 +637,7 @@ function showFatalError(error: unknown) {
   const message = document.createElement("pre");
 
   wrapper.className = "md-editor-error";
-  title.textContent = "MD Editor failed to load";
+  title.textContent = "MalkDown Editor failed to load";
   message.textContent = details.stack || details.message;
 
   wrapper.append(title, message);
@@ -653,7 +658,7 @@ function reportNonFatalWebviewError(context: string, error: unknown): void {
   const details = getErrorDetails(error);
   const message = `${context}: ${details.message}`;
 
-  console.error("MD Editor webview non-fatal error:", message, details.stack);
+  console.error("MalkDown Editor webview non-fatal error:", message, details.stack);
 
   try {
     bridge.postMessage({
@@ -664,6 +669,206 @@ function reportNonFatalWebviewError(context: string, error: unknown): void {
   } catch {
     // Best effort only; startup and editing should continue.
   }
+}
+
+function buttonKindClass(button: EditorDialogButton): string {
+  switch (button.kind) {
+    case "destructive":
+      return "md-editor-dialog__button--destructive";
+    case "primary":
+      return "md-editor-dialog__button--primary";
+    default:
+      return "md-editor-dialog__button--secondary";
+  }
+}
+
+function focusableDialogElements(root: HTMLElement): HTMLElement[] {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(
+      [
+        "button:not([disabled])",
+        "summary",
+        "a[href]",
+        "input:not([disabled])",
+        "select:not([disabled])",
+        "textarea:not([disabled])",
+        "[tabindex]:not([tabindex='-1'])",
+      ].join(","),
+    ),
+  ).filter((element) => {
+    const style = window.getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden";
+  });
+}
+
+function showEditorDialog(message: ShowEditorDialogMessage): void {
+  activeEditorDialog?.close(activeEditorDialog.cancelButtonId);
+
+  const overlay = document.createElement("div");
+  overlay.className = "md-editor-dialog-backdrop";
+
+  const dialog = document.createElement("section");
+  dialog.className = "md-editor-dialog";
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  dialog.setAttribute("aria-labelledby", `md-editor-dialog-title-${message.requestId}`);
+
+  const title = document.createElement("h2");
+  title.id = `md-editor-dialog-title-${message.requestId}`;
+  title.className = "md-editor-dialog__title";
+  title.textContent = message.title;
+  dialog.appendChild(title);
+
+  if (message.body?.length) {
+    const body = document.createElement("div");
+    body.className = "md-editor-dialog__body";
+    for (const line of message.body) {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = line;
+      body.appendChild(paragraph);
+    }
+    dialog.appendChild(body);
+  }
+
+  if (message.details || message.detailsSections?.length) {
+    const details = document.createElement("details");
+    details.className = "md-editor-dialog__details";
+
+    const summary = document.createElement("summary");
+    summary.textContent = message.detailsLabel || "More details";
+    details.appendChild(summary);
+
+    const detailsBody = document.createElement("div");
+    detailsBody.className = "md-editor-dialog__details-body";
+    if (message.detailsSections?.length) {
+      for (const section of message.detailsSections) {
+        const sectionElement = document.createElement("div");
+        sectionElement.className = "md-editor-dialog__detail-section";
+
+        if (section.label) {
+          const label = document.createElement("div");
+          label.className = [
+            "md-editor-dialog__detail-label",
+            section.kind === "destructive"
+              ? "md-editor-dialog__detail-label--destructive"
+              : "",
+          ].filter(Boolean).join(" ");
+          label.textContent = `${section.label}:`;
+          sectionElement.appendChild(label);
+        }
+
+        const text = document.createElement("div");
+        text.className = [
+          "md-editor-dialog__detail-text",
+          section.monospace ? "md-editor-dialog__detail-text--monospace" : "",
+          section.kind === "destructive"
+            ? "md-editor-dialog__detail-text--destructive"
+            : "",
+        ].filter(Boolean).join(" ");
+        text.textContent = section.text;
+        sectionElement.appendChild(text);
+        detailsBody.appendChild(sectionElement);
+      }
+    } else {
+      detailsBody.textContent = message.details ?? "";
+    }
+    details.appendChild(detailsBody);
+    dialog.appendChild(details);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "md-editor-dialog__actions";
+  const leftActions = document.createElement("div");
+  leftActions.className = "md-editor-dialog__actions-group";
+  const rightActions = document.createElement("div");
+  rightActions.className = "md-editor-dialog__actions-group";
+
+  const defaultButton =
+    message.buttons.find((button) => button.default) ??
+    message.buttons.find((button) => button.cancel) ??
+    message.buttons[0];
+  const cancelButton =
+    message.buttons.find((button) => button.cancel) ??
+    defaultButton;
+  let didClose = false;
+
+  const close = (buttonId?: string) => {
+    if (didClose) return;
+    didClose = true;
+    overlay.removeEventListener("keydown", onKeyDown, { capture: true });
+    overlay.remove();
+    activeEditorDialog = undefined;
+    bridge.postMessage({
+      type: "dialogResult",
+      requestId: message.requestId,
+      buttonId,
+    } as WebviewToHostMessage);
+  };
+
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      close(cancelButton?.id);
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const focusable = focusableDialogElements(dialog);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+    const nextIndex = event.shiftKey
+      ? currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1
+      : currentIndex === focusable.length - 1 ? 0 : currentIndex + 1;
+
+    event.preventDefault();
+    focusable[nextIndex].focus();
+  }
+
+  for (const item of message.buttons) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `md-editor-dialog__button ${buttonKindClass(item)}`;
+    button.textContent = item.label;
+    button.addEventListener("click", () => close(item.id));
+
+    if (item.default) {
+      button.dataset.default = "true";
+    }
+    if (item.cancel) {
+      button.dataset.cancel = "true";
+    }
+
+    if (item.placement === "left") {
+      leftActions.appendChild(button);
+    } else {
+      rightActions.appendChild(button);
+    }
+  }
+
+  actions.append(leftActions, rightActions);
+  dialog.appendChild(actions);
+  overlay.appendChild(dialog);
+  overlay.addEventListener("keydown", onKeyDown, { capture: true });
+  document.body.appendChild(overlay);
+
+  activeEditorDialog = {
+    requestId: message.requestId,
+    cancelButtonId: cancelButton?.id,
+    close,
+  };
+
+  window.requestAnimationFrame(() => {
+    const defaultElement = dialog.querySelector<HTMLElement>(
+      `[data-default='true']`,
+    );
+    defaultElement?.focus();
+  });
 }
 
 function isDomNode(value: unknown): value is Node {
@@ -683,7 +888,7 @@ function warnInvalidDomSpec(context: string, value: unknown) {
   if (didWarnAboutInvalidDomSpec) return;
 
   didWarnAboutInvalidDomSpec = true;
-  console.warn("MD Editor sanitized an invalid Milkdown DOM spec.", {
+  console.warn("MalkDown Editor sanitized an invalid Milkdown DOM spec.", {
     context,
     value,
   });
@@ -895,6 +1100,9 @@ bridge.onMessage((message) => {
     case "setReadOnly":
       applyReadOnlyMode(msg.readOnly, { notify: true });
       break;
+    case "showDialog":
+      showEditorDialog(msg);
+      break;
     case "settingsUpdated":
       dateTimeSettings = msg.dateTime;
       tableSettings = msg.tables;
@@ -926,7 +1134,7 @@ bridge.onMessage((message) => {
       applyThemeVariables(msg.theme?.name);
       applyTableSettings();
       applyCodeBlockSettings();
-      setLoadingStatus("Creating MD Editor...");
+      setLoadingStatus("Creating MalkDown Editor...");
       void mountEditor(msg.markdown)
         .catch(showFatalError)
         .finally(() => {
@@ -2546,9 +2754,14 @@ async function mountEditor(markdown: string): Promise<void> {
     root,
     defaultValue: markdown,
     features: {
-      [CrepeFeature.Cursor]: false, // Hide cursor indicator
+      [CrepeFeature.Cursor]: true,
     },
     featureConfigs: {
+      [CrepeFeature.Cursor]: {
+        width: 4,
+        color: false,
+        virtual: false,
+      },
       [CrepeFeature.BlockEdit]: {
         advancedGroup: {
           table: null,

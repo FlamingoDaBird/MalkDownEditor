@@ -1,8 +1,9 @@
 {
   "name": "md-editor",
-  "displayName": "MD Editor",
+  "displayName": "MalkDown Editor",
   "description": "WYSIWYG Markdown editor for VS Code using Milkdown Crepe.",
-  "version": "0.1.1",
+  "version": "0.1.2",
+  "icon": "media/icon.png",
   "publisher": "flamingo",
   "private": true,
   "repository": {
@@ -43,226 +44,328 @@
     "commands": [
       {
         "command": "mdeditor.open",
-        "title": "MD Editor",
-        "category": "MD Editor",
-        "icon": "$(markdown)"
+        "title": "MalkDown Editor",
+        "category": "MalkDown Editor",
+        "icon": {
+          "light": "media/editor-title-icon-dark.svg",
+          "dark": "media/editor-title-icon-light.svg"
+        }
       },
       {
         "command": "mdeditor.insertDate",
         "title": "Insert Today's Date",
-        "category": "MD Editor"
+        "category": "MalkDown Editor"
       },
       {
         "command": "mdeditor.insertTime",
         "title": "Insert Current Time",
-        "category": "MD Editor"
+        "category": "MalkDown Editor"
       },
       {
         "command": "mdeditor.insertDateTime",
         "title": "Insert Date and Time",
-        "category": "MD Editor"
+        "category": "MalkDown Editor"
       },
       {
         "command": "mdeditor.insertLastUpdated",
         "title": "Insert Last Updated",
-        "category": "MD Editor"
+        "category": "MalkDown Editor"
       },
       {
         "command": "mdeditor.updateLastUpdated",
         "title": "Update Last Updated Line",
-        "category": "MD Editor"
+        "category": "MalkDown Editor"
       },
       {
         "command": "mdeditor.insertHistoryEntry",
         "title": "Insert History Entry",
-        "category": "MD Editor"
+        "category": "MalkDown Editor"
       },
       {
         "command": "mdeditor.insertCustomDateTime",
         "title": "Insert Custom Date/Time Snippet",
-        "category": "MD Editor"
+        "category": "MalkDown Editor"
       },
       {
         "command": "mdeditor.openSettings",
         "title": "Open Settings",
-        "category": "MD Editor",
+        "category": "MalkDown Editor",
         "icon": "$(gear)"
       },
       {
         "command": "mdeditor.toggleReadOnly",
         "title": "Toggle Read-Only Mode",
-        "category": "MD Editor",
+        "category": "MalkDown Editor",
         "icon": "$(lock)"
       },
       {
         "command": "mdeditor.enableReadOnly",
         "title": "Enable Read-Only Mode",
-        "category": "MD Editor",
+        "category": "MalkDown Editor",
         "icon": "$(unlock)"
       },
       {
         "command": "mdeditor.disableReadOnly",
         "title": "Disable Read-Only Mode",
-        "category": "MD Editor",
+        "category": "MalkDown Editor",
         "icon": "$(lock)"
       }
     ],
-    "configuration": {
-      "title": "MD Editor",
-      "properties": {
-        "mdEditor.theme": {
-          "type": "string",
-          "enum": [
-            "vscode-dark",
-            "vscode-light",
-            "vscode-high-contrast",
-            "default"
-          ],
-          "default": "vscode-dark",
-          "markdownDescription": "Theme used by the MD Editor webview."
-        },
-        "mdEditor.attachments.locationMode": {
-          "type": "string",
-          "enum": [
-            "markdown-folder-attachments",
-            "markdown-folder",
-            "workspace-relative-path",
-            "ask-each-time"
-          ],
-          "enumDescriptions": [
-            "Save into a .attachments folder next to the Markdown file.",
-            "Save directly beside the Markdown file.",
-            "Save into a workspace-root relative folder.",
-            "Ask for a folder each time an attachment is uploaded."
-          ],
-          "default": "markdown-folder-attachments",
-          "markdownDescription": "Where MD Editor saves uploaded attachments."
-        },
-        "mdEditor.attachments.folderName": {
-          "type": "string",
-          "default": ".attachments",
-          "markdownDescription": "Folder name created beside the current Markdown file.\n\nOnly used when `Location Mode` is `markdown-folder-attachments`."
-        },
-        "mdEditor.attachments.path": {
-          "type": "string",
-          "default": "attachments",
-          "markdownDescription": "Workspace-relative folder for attachments.\n\nOnly used when `Location Mode` is `workspace-relative-path`. Do not use an absolute path like `/home/name/...`."
-        },
-        "mdEditor.attachments.alwaysUseOriginalFilename": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "Use the uploaded file's original filename when saving attachments. Existing files are never overwritten."
-        },
-        "mdEditor.attachments.alwaysConfirmNameAndPath": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "Ask for the attachment folder and filename before every attachment is saved."
-        },
-        "mdEditor.attachments.askBeforeDeletingFiles": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Ask before deleting a local attachment file from disk when its image reference is removed from the MD Editor."
-        },
-        "mdEditor.attachments.generatedNameDigits": {
-          "type": "number",
-          "default": 9,
-          "minimum": 1,
-          "maximum": 18,
-          "markdownDescription": "Number of digits in generated attachment filenames, for example `features-000000001.png`."
-        },
-        "mdEditor.tables.floatingToolbar": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Show MD Editor's floating table toolbar when the cursor is inside a table."
-        },
-        "mdEditor.tables.contextMenu": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Enable MD Editor's right-click table action menu."
-        },
-        "mdEditor.tables.milkdownControls": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Show Milkdown Crepe's default table handles and grid-line add controls."
-        },
-        "mdEditor.tables.slashMenu": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Enable MD Editor's table-cell slash menu. Type `/` as the first character in a table cell to add/delete rows or columns."
-        },
-        "mdEditor.tables.defaultRows": {
-          "type": "number",
-          "default": 3,
-          "minimum": 1,
-          "maximum": 50,
-          "markdownDescription": "Default number of rows used when inserting a new GFM Markdown table."
-        },
-        "mdEditor.tables.defaultColumns": {
-          "type": "number",
-          "default": 3,
-          "minimum": 1,
-          "maximum": 20,
-          "markdownDescription": "Default number of columns used when inserting a new GFM Markdown table."
-        },
-        "mdEditor.tables.insertBehavior": {
-          "type": "string",
-          "enum": [
-            "useDefaultSize",
-            "askEveryTime"
-          ],
-          "enumDescriptions": [
-            "Insert a table immediately using the configured default rows and columns.",
-            "Open a row/column picker every time Insert Table is selected."
-          ],
-          "default": "useDefaultSize",
-          "markdownDescription": "Controls whether Insert Table uses the configured default size or asks for rows and columns each time."
-        },
-        "mdEditor.codeBlocks.alwaysShowLanguage": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Always show the selected language label on code blocks instead of only showing it on hover."
-        },
-        "mdEditor.codeBlocks.alwaysShowCopyButton": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Always show the code block Copy button instead of only showing it on hover."
-        },
-        "mdEditor.dateTime.dateFormat": {
-          "type": "string",
-          "default": "yyyy-MM-dd",
-          "markdownDescription": "Date format used by MD Editor timestamp tools. Supported tokens include `yyyy`, `yy`, `MM`, `M`, `dd`, and `d`."
-        },
-        "mdEditor.dateTime.timeFormat": {
-          "type": "string",
-          "default": "HH:mm",
-          "markdownDescription": "Time format used by MD Editor timestamp tools. Supported tokens include `HH`, `H`, `hh`, `h`, `mm`, `ss`, and `a` for AM/PM."
-        },
-        "mdEditor.dateTime.lastUpdatedTemplate": {
-          "type": "string",
-          "default": "Last updated: {date} {time}",
-          "markdownDescription": "Template inserted or updated by the Last Updated timestamp actions. Available placeholders: `{date}`, `{time}`, `{datetime}`."
-        },
-        "mdEditor.dateTime.historyEntryTemplate": {
-          "type": "string",
-          "default": "- {date} {time} - ",
-          "markdownDescription": "Template inserted by the history entry timestamp action. Available placeholders: `{date}`, `{time}`, `{datetime}`."
-        },
-        "mdEditor.dateTime.customTemplate": {
-          "type": "string",
-          "default": "{date} {time}",
-          "markdownDescription": "Template inserted by the custom date/time snippet action. Available placeholders: `{date}`, `{time}`, `{datetime}`."
-        },
-        "mdEditor.dateTime.inlineSlashShortcuts": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Enable lightweight inline date/time shortcuts such as `/date`, `/time`, `/datetime`, `/updated`, and `/history`. Shortcuts are replaced only when accepted with `Tab` or `Enter` and are ignored inside URLs, paths, and words."
+    "configuration": [
+      {
+        "title": "MalkDown Editor: Appearance",
+        "order": 10,
+        "properties": {
+          "mdEditor.theme": {
+            "type": "string",
+            "enum": [
+              "vscode-dark",
+              "vscode-light",
+              "vscode-high-contrast",
+              "default"
+            ],
+            "enumItemLabels": [
+              "VS Code Dark",
+              "VS Code Light",
+              "VS Code High Contrast",
+              "Default"
+            ],
+            "markdownEnumDescriptions": [
+              "Use the dark webview theme.",
+              "Use the light webview theme.",
+              "Use the high-contrast webview theme.",
+              "Use MalkDown Editor's default theme selection."
+            ],
+            "default": "vscode-dark",
+            "order": 10,
+            "markdownDescription": "Theme used by the MalkDown Editor webview."
+          }
+        }
+      },
+      {
+        "title": "MalkDown Editor: Attachments",
+        "order": 20,
+        "properties": {
+          "mdEditor.attachments.locationMode": {
+            "type": "string",
+            "enum": [
+              "markdown-folder-attachments",
+              "markdown-folder",
+              "workspace-relative-path",
+              "ask-each-time"
+            ],
+            "enumItemLabels": [
+              "Markdown Folder Attachments",
+              "Markdown Folder",
+              "Workspace Relative Path",
+              "Ask Each Time"
+            ],
+            "markdownEnumDescriptions": [
+              "Save into a `.attachments` folder next to the Markdown file.",
+              "Save directly beside the Markdown file.",
+              "Save into a workspace-root relative folder.",
+              "Ask for a folder each time an attachment is uploaded."
+            ],
+            "default": "markdown-folder-attachments",
+            "order": 10,
+            "markdownDescription": "Where MalkDown Editor saves uploaded attachments."
+          },
+          "mdEditor.attachments.folderName": {
+            "type": "string",
+            "default": ".attachments",
+            "order": 20,
+            "markdownDescription": "Folder name created beside the current Markdown file.\n\nOnly used when [Location Mode](#mdEditor.attachments.locationMode#) is `markdown-folder-attachments`."
+          },
+          "mdEditor.attachments.path": {
+            "type": "string",
+            "default": "attachments",
+            "order": 30,
+            "markdownDescription": "Workspace-relative folder for attachments.\n\nOnly used when [Location Mode](#mdEditor.attachments.locationMode#) is `workspace-relative-path`. Do not use an absolute path like `/home/name/...`."
+          },
+          "mdEditor.attachments.alwaysUseOriginalFilename": {
+            "type": "boolean",
+            "default": false,
+            "order": 40,
+            "markdownDescription": "Use the uploaded file's original filename when saving attachments. Existing files are never overwritten."
+          },
+          "mdEditor.attachments.alwaysConfirmNameAndPath": {
+            "type": "boolean",
+            "default": false,
+            "order": 50,
+            "markdownDescription": "Ask for the attachment folder and filename before every attachment is saved."
+          },
+          "mdEditor.attachments.generatedNameDigits": {
+            "type": "number",
+            "default": 9,
+            "minimum": 1,
+            "maximum": 18,
+            "order": 60,
+            "markdownDescription": "Number of digits in generated attachment filenames, for example `features-000000001.png`."
+          },
+          "mdEditor.attachments.askBeforeDeletingFiles": {
+            "type": "boolean",
+            "default": true,
+            "order": 70,
+            "markdownDescription": "Ask before deleting a local attachment file from disk when its attachment reference is removed from MalkDown Editor. The safe default action is `Cancel`."
+          },
+          "mdEditor.attachments.trash.enabled": {
+            "type": "boolean",
+            "default": true,
+            "order": 80,
+            "markdownDescription": "Show a recoverable `Move to Trash` option when a local attachment reference is removed from MalkDown Editor."
+          },
+          "mdEditor.attachments.trash.folderName": {
+            "type": "string",
+            "default": ".attachments-trash",
+            "order": 90,
+            "markdownDescription": "Workspace-root relative folder where MalkDown Editor moves trashed attachments.\n\nDefault: `.attachments-trash`, which creates one master trash folder in the current workspace root."
+          },
+          "mdEditor.attachments.trash.preserveOriginalPath": {
+            "type": "boolean",
+            "default": true,
+            "order": 100,
+            "markdownDescription": "Preserve the attachment's original workspace-relative folder path inside the attachment trash folder."
+          },
+          "mdEditor.attachments.trash.writeIndex": {
+            "type": "boolean",
+            "default": true,
+            "order": 110,
+            "markdownDescription": "Write `.attachments-trash/index.json` entries when attachments are moved to the attachment trash."
+          }
+        }
+      },
+      {
+        "title": "MalkDown Editor: Tables",
+        "order": 30,
+        "properties": {
+          "mdEditor.tables.floatingToolbar": {
+            "type": "boolean",
+            "default": true,
+            "order": 10,
+            "markdownDescription": "Show MalkDown Editor's floating table toolbar when the cursor is inside a table."
+          },
+          "mdEditor.tables.contextMenu": {
+            "type": "boolean",
+            "default": true,
+            "order": 20,
+            "markdownDescription": "Enable MalkDown Editor's right-click table action menu."
+          },
+          "mdEditor.tables.milkdownControls": {
+            "type": "boolean",
+            "default": true,
+            "order": 30,
+            "markdownDescription": "Show the built-in Milkdown table handles and grid-line add controls."
+          },
+          "mdEditor.tables.slashMenu": {
+            "type": "boolean",
+            "default": true,
+            "order": 40,
+            "markdownDescription": "Enable MalkDown Editor's table-cell slash menu. Type `/` as the first character in a table cell to add/delete rows or columns."
+          },
+          "mdEditor.tables.defaultRows": {
+            "type": "number",
+            "default": 3,
+            "minimum": 1,
+            "maximum": 50,
+            "order": 50,
+            "markdownDescription": "Default number of rows used when inserting a new GFM Markdown table."
+          },
+          "mdEditor.tables.defaultColumns": {
+            "type": "number",
+            "default": 3,
+            "minimum": 1,
+            "maximum": 20,
+            "order": 60,
+            "markdownDescription": "Default number of columns used when inserting a new GFM Markdown table."
+          },
+          "mdEditor.tables.insertBehavior": {
+            "type": "string",
+            "enum": [
+              "useDefaultSize",
+              "askEveryTime"
+            ],
+            "enumItemLabels": [
+              "Use Default Size",
+              "Ask Every Time"
+            ],
+            "markdownEnumDescriptions": [
+              "Insert a table immediately using the configured default rows and columns.",
+              "Open a row/column picker every time Insert Table is selected."
+            ],
+            "default": "useDefaultSize",
+            "order": 70,
+            "markdownDescription": "Controls whether Insert Table uses the configured default size or asks for rows and columns each time."
+          }
+        }
+      },
+      {
+        "title": "MalkDown Editor: Code Blocks",
+        "order": 40,
+        "properties": {
+          "mdEditor.codeBlocks.alwaysShowLanguage": {
+            "type": "boolean",
+            "default": true,
+            "order": 10,
+            "markdownDescription": "Always show the selected language label on code blocks instead of only showing it on hover."
+          },
+          "mdEditor.codeBlocks.alwaysShowCopyButton": {
+            "type": "boolean",
+            "default": true,
+            "order": 20,
+            "markdownDescription": "Always show the code block Copy button instead of only showing it on hover."
+          }
+        }
+      },
+      {
+        "title": "MalkDown Editor: Date & Time",
+        "order": 50,
+        "properties": {
+          "mdEditor.dateTime.dateFormat": {
+            "type": "string",
+            "default": "yyyy-MM-dd",
+            "order": 10,
+            "markdownDescription": "Date format used by MalkDown Editor timestamp tools. Supported tokens include `yyyy`, `yy`, `MM`, `M`, `dd`, and `d`."
+          },
+          "mdEditor.dateTime.timeFormat": {
+            "type": "string",
+            "default": "HH:mm",
+            "order": 20,
+            "markdownDescription": "Time format used by MalkDown Editor timestamp tools. Supported tokens include `HH`, `H`, `hh`, `h`, `mm`, `ss`, and `a` for AM/PM."
+          },
+          "mdEditor.dateTime.lastUpdatedTemplate": {
+            "type": "string",
+            "default": "Last updated: {date} {time}",
+            "editPresentation": "multilineText",
+            "order": 30,
+            "markdownDescription": "Template inserted or updated by the Last Updated timestamp actions. Available placeholders: `{date}`, `{time}`, `{datetime}`."
+          },
+          "mdEditor.dateTime.historyEntryTemplate": {
+            "type": "string",
+            "default": "- {date} {time} - ",
+            "editPresentation": "multilineText",
+            "order": 40,
+            "markdownDescription": "Template inserted by the history entry timestamp action. Available placeholders: `{date}`, `{time}`, `{datetime}`."
+          },
+          "mdEditor.dateTime.customTemplate": {
+            "type": "string",
+            "default": "{date} {time}",
+            "editPresentation": "multilineText",
+            "order": 50,
+            "markdownDescription": "Template inserted by the custom date/time snippet action. Available placeholders: `{date}`, `{time}`, `{datetime}`."
+          },
+          "mdEditor.dateTime.inlineSlashShortcuts": {
+            "type": "boolean",
+            "default": true,
+            "order": 60,
+            "markdownDescription": "Enable lightweight inline date/time shortcuts such as `/date`, `/time`, `/datetime`, `/updated`, and `/history`. Shortcuts are replaced only when accepted with `Tab` or `Enter` and are ignored inside URLs, paths, and words."
+          }
         }
       }
-    },
+    ],
     "customEditors": [
       {
         "viewType": "mdeditor.markdownEditor",
-        "displayName": "MD Editor",
+        "displayName": "MalkDown Editor",
         "selector": [
           {
             "filenamePattern": "*.md"

@@ -97,7 +97,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     if (!targetUri) {
       await vscode.window.showWarningMessage(
-        "Open a Markdown file in MD Editor before toggling read-only mode.",
+        "Open a Markdown file in MalkDown Editor before toggling read-only mode.",
       );
       return;
     }
@@ -108,7 +108,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     if (readOnly === undefined) {
       await vscode.window.showWarningMessage(
-        "Switch to MD Editor before toggling read-only mode.",
+        "Switch to MalkDown Editor before toggling read-only mode.",
       );
       await updateReadOnlyContext();
       return;
@@ -117,8 +117,8 @@ export function activate(context: vscode.ExtensionContext): void {
     await updateReadOnlyContext();
     await vscode.window.showInformationMessage(
       readOnly
-        ? "MD Editor is now read-only."
-        : "MD Editor editing is enabled.",
+        ? "MalkDown Editor is now read-only."
+        : "MalkDown Editor editing is enabled.",
     );
   };
 
@@ -140,7 +140,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
       if (!targetUri) {
         await vscode.window.showWarningMessage(
-          "Open a Markdown file before launching MD Editor.",
+          "Open a Markdown file before launching MalkDown Editor.",
         );
         return;
       }
@@ -194,14 +194,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
     if (!targetUri) {
       await vscode.window.showWarningMessage(
-        "Open a Markdown file in MD Editor before inserting a timestamp.",
+        "Open a Markdown file in MalkDown Editor before inserting a timestamp.",
       );
       return;
     }
 
     if (!provider.runDateTimeAction(targetUri, action)) {
       await vscode.window.showWarningMessage(
-        "Switch to MD Editor before inserting a timestamp.",
+        "Switch to MalkDown Editor before inserting a timestamp.",
       );
     }
   };

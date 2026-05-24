@@ -1,14 +1,27 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import { AttachmentManager } from "./attachments";
+import {
+  DEFAULT_CODE_BLOCK_SETTINGS,
+  DEFAULT_DATE_TIME_SETTINGS,
+  DEFAULT_EDITOR_THEME,
+  DEFAULT_TABLE_SETTINGS,
+  normalizeCodeBlockSettings,
+  normalizeDateTimeSettings,
+  normalizeTableSettings,
+  themeClassForSetting,
+  type EditorThemeSetting,
+} from "./utils/editor-settings";
 import { parseMarkdownToStructure } from "./utils/markdown-parser";
 import type {
   CodeBlockSettings,
   CopyAttachmentPathMessage,
   DateTimeAction,
   DateTimeSettings,
+  EditorDialogResultMessage,
   HostToWebviewMessage,
   ResolveAttachmentSrcMessage,
+  ShowEditorDialogMessage,
   TableSettings,
   UploadAttachmentMessage,
   WebviewToHostMessage,
@@ -20,9 +33,14 @@ export const VIEW_TYPE = "mdeditor.markdownEditor";
 class WebviewBridge {
   constructor(readonly panel: vscode.WebviewPanel) {}
 
-  postMessage(message: HostToWebviewMessage) {
-    void this.panel.webview.postMessage(message);
+  postMessage(message: HostToWebviewMessage): Thenable<boolean> {
+    return this.panel.webview.postMessage(message);
   }
+}
+
+interface PendingEditorDialog {
+  bridge: WebviewBridge;
+  resolve: (buttonId: string | undefined) => void;
 }
 
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
@@ -43,18 +61,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private _statusBar: vscode.StatusBarItem;
   private readonly _attachments: AttachmentManager;
   private readonly _bridges = new Map<string, WebviewBridge>();
+  private readonly _pendingEditorDialogs = new Map<string, PendingEditorDialog>();
+  private _dialogRequestSeq = 0;
   private readonly _readOnlyStates = new Map<string, boolean>();
   private readonly _output: vscode.OutputChannel;
 
   constructor(readonly context: vscode.ExtensionContext) {
     MarkdownEditorProvider._instance = this;
     this._attachments = new AttachmentManager(context);
-    this._output = vscode.window.createOutputChannel("MD Editor");
+    this._output = vscode.window.createOutputChannel("MalkDown Editor");
     this._statusBar = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
       100,
     );
-    this._statusBar.text = "$(markdown) MD Editor";
+    this._statusBar.text = "$(markdown) MalkDown Editor";
     this._statusBar.command = "mdeditor.open";
     this._statusBar.show();
     context.subscriptions.push(this._statusBar, this._output);
@@ -87,10 +107,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     // Get theme from VS Code settings
     const config = vscode.workspace.getConfiguration("mdEditor");
-    const theme = config.get<string>("theme", "vscode-dark");
+    const theme = config.get<EditorThemeSetting>("theme", DEFAULT_EDITOR_THEME);
     
     // Apply theme class to webview for proper theming
-    const themeClass = theme === "vscode-light" ? "theme-light" : (theme === "vscode-high-contrast" ? "theme-high-contrast" : "theme-dark");
+    const themeClass = themeClassForSetting(theme);
 
     let webviewReady = false;
     const sendInit = async () => {
@@ -116,7 +136,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           codeBlocks: this._getCodeBlockSettings(document.uri),
         });
       } catch (error) {
-        this._postFatalError(bridge, "MD Editor failed to initialize", error);
+        this._postFatalError(bridge, "MalkDown Editor failed to initialize", error);
       }
     };
 
@@ -124,7 +144,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const messageDisposable = webviewPanel.webview.onDidReceiveMessage(async (message: WebviewToHostMessage) => {
       switch (message.type) {
         case "edit":
-          await this._applyEdit(document, message);
+          await this._applyEdit(document, message, bridge);
           break;
         case "ready":
           this._log("Webview reported ready");
@@ -135,7 +155,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         case "error":
           this._log(`Webview error: ${message.message}`);
-          console.error("MD Editor webview error:", message.message, message.stack);
+          console.error("MalkDown Editor webview error:", message.message, message.stack);
           break;
         case "webviewBootLog":
           this._log(
@@ -165,6 +185,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         case "copyAttachmentPath":
           await this._handleCopyAttachmentPath(document, message, bridge);
+          break;
+        case "dialogResult":
+          this._handleEditorDialogResult(message);
           break;
       }
     });
@@ -222,6 +245,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       if (this._bridges.get(document.uri.toString()) === bridge) {
         this._bridges.delete(document.uri.toString());
       }
+      this._resolvePendingEditorDialogsForBridge(bridge, "cancel");
     });
 
     this._bridges.set(document.uri.toString(), bridge);
@@ -314,63 +338,82 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private _getDateTimeSettings(resource: vscode.Uri): DateTimeSettings {
     const config = vscode.workspace.getConfiguration("mdEditor", resource);
 
-    return {
-      dateFormat: config.get<string>("dateTime.dateFormat", "yyyy-MM-dd"),
-      timeFormat: config.get<string>("dateTime.timeFormat", "HH:mm"),
+    return normalizeDateTimeSettings({
+      dateFormat: config.get<string>(
+        "dateTime.dateFormat",
+        DEFAULT_DATE_TIME_SETTINGS.dateFormat,
+      ),
+      timeFormat: config.get<string>(
+        "dateTime.timeFormat",
+        DEFAULT_DATE_TIME_SETTINGS.timeFormat,
+      ),
       lastUpdatedTemplate: config.get<string>(
         "dateTime.lastUpdatedTemplate",
-        "Last updated: {date} {time}",
+        DEFAULT_DATE_TIME_SETTINGS.lastUpdatedTemplate,
       ),
       historyEntryTemplate: config.get<string>(
         "dateTime.historyEntryTemplate",
-        "- {date} {time} - ",
+        DEFAULT_DATE_TIME_SETTINGS.historyEntryTemplate,
       ),
       customTemplate: config.get<string>(
         "dateTime.customTemplate",
-        "{date} {time}",
+        DEFAULT_DATE_TIME_SETTINGS.customTemplate,
       ),
       inlineSlashShortcuts: config.get<boolean>(
         "dateTime.inlineSlashShortcuts",
-        true,
+        DEFAULT_DATE_TIME_SETTINGS.inlineSlashShortcuts,
       ),
-    };
+    });
   }
 
   private _getTableSettings(resource: vscode.Uri): TableSettings {
     const config = vscode.workspace.getConfiguration("mdEditor", resource);
-    const defaultRows = config.get<number>("tables.defaultRows", 3);
-    const defaultColumns = config.get<number>("tables.defaultColumns", 3);
-    const insertBehavior = config.get<TableSettings["insertBehavior"]>(
-      "tables.insertBehavior",
-      "useDefaultSize",
-    );
 
-    return {
-      floatingToolbar: config.get<boolean>("tables.floatingToolbar", true),
-      contextMenu: config.get<boolean>("tables.contextMenu", true),
-      milkdownControls: config.get<boolean>("tables.milkdownControls", true),
-      slashMenu: config.get<boolean>("tables.slashMenu", true),
-      defaultRows: Math.min(Math.max(Math.trunc(defaultRows), 1), 50),
-      defaultColumns: Math.min(Math.max(Math.trunc(defaultColumns), 1), 20),
-      insertBehavior: insertBehavior === "askEveryTime"
-        ? "askEveryTime"
-        : "useDefaultSize",
-    };
+    return normalizeTableSettings({
+      floatingToolbar: config.get<boolean>(
+        "tables.floatingToolbar",
+        DEFAULT_TABLE_SETTINGS.floatingToolbar,
+      ),
+      contextMenu: config.get<boolean>(
+        "tables.contextMenu",
+        DEFAULT_TABLE_SETTINGS.contextMenu,
+      ),
+      milkdownControls: config.get<boolean>(
+        "tables.milkdownControls",
+        DEFAULT_TABLE_SETTINGS.milkdownControls,
+      ),
+      slashMenu: config.get<boolean>(
+        "tables.slashMenu",
+        DEFAULT_TABLE_SETTINGS.slashMenu,
+      ),
+      defaultRows: config.get<number>(
+        "tables.defaultRows",
+        DEFAULT_TABLE_SETTINGS.defaultRows,
+      ),
+      defaultColumns: config.get<number>(
+        "tables.defaultColumns",
+        DEFAULT_TABLE_SETTINGS.defaultColumns,
+      ),
+      insertBehavior: config.get<TableSettings["insertBehavior"]>(
+        "tables.insertBehavior",
+        DEFAULT_TABLE_SETTINGS.insertBehavior,
+      ),
+    });
   }
 
   private _getCodeBlockSettings(resource: vscode.Uri): CodeBlockSettings {
     const config = vscode.workspace.getConfiguration("mdEditor", resource);
 
-    return {
+    return normalizeCodeBlockSettings({
       alwaysShowLanguage: config.get<boolean>(
         "codeBlocks.alwaysShowLanguage",
-        true,
+        DEFAULT_CODE_BLOCK_SETTINGS.alwaysShowLanguage,
       ),
       alwaysShowCopyButton: config.get<boolean>(
         "codeBlocks.alwaysShowCopyButton",
-        true,
+        DEFAULT_CODE_BLOCK_SETTINGS.alwaysShowCopyButton,
       ),
-    };
+    });
   }
 
   private async _handleAttachmentUpload(
@@ -465,9 +508,58 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     }
   }
 
+  private async _showEditorDialog(
+    bridge: WebviewBridge,
+    dialog: Omit<ShowEditorDialogMessage, "type" | "requestId">,
+  ): Promise<string | undefined> {
+    const requestId = `dialog-${Date.now()}-${++this._dialogRequestSeq}`;
+
+    return new Promise((resolve) => {
+      this._pendingEditorDialogs.set(requestId, {
+        bridge,
+        resolve,
+      });
+
+      void bridge.postMessage({
+        type: "showDialog",
+        requestId,
+        ...dialog,
+      }).then((posted) => {
+        if (posted) return;
+
+        const pending = this._pendingEditorDialogs.get(requestId);
+        if (!pending) return;
+
+        this._pendingEditorDialogs.delete(requestId);
+        pending.resolve(undefined);
+      });
+    });
+  }
+
+  private _handleEditorDialogResult(message: EditorDialogResultMessage): void {
+    const pending = this._pendingEditorDialogs.get(message.requestId);
+    if (!pending) return;
+
+    this._pendingEditorDialogs.delete(message.requestId);
+    pending.resolve(message.buttonId);
+  }
+
+  private _resolvePendingEditorDialogsForBridge(
+    bridge: WebviewBridge,
+    buttonId: string | undefined,
+  ): void {
+    for (const [requestId, pending] of [...this._pendingEditorDialogs]) {
+      if (pending.bridge !== bridge) continue;
+
+      this._pendingEditorDialogs.delete(requestId);
+      pending.resolve(buttonId);
+    }
+  }
+
   private async _applyEdit(
     document: vscode.TextDocument,
     message: { markdown: string; version: number },
+    bridge: WebviewBridge,
   ): Promise<void> {
     if (this._isReadOnly(document.uri)) return;
 
@@ -482,7 +574,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     if (applied) {
       void this._attachments
-        .promptForDeletedAttachments(document, previousMarkdown, message.markdown)
+        .promptForDeletedAttachments(
+          document,
+          previousMarkdown,
+          message.markdown,
+          (dialog) => this._showEditorDialog(bridge, dialog),
+        )
         .catch((error) => {
           const message = error instanceof Error ? error.message : String(error);
           console.error("Failed to check deleted attachments:", message);

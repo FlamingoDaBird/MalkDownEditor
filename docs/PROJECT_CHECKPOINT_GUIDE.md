@@ -1,4 +1,4 @@
-# Milestone Checkpoints for VS Code MD Editor
+# Milestone Checkpoints for VS Code MalkDown Editor
 
 ## What Constitutes a Milestone?
 

@@ -2,19 +2,51 @@
 
 ## Status: 🟢 MVP editor working
 
-**Last Modified**: 2026-05-19  
-**Current Focus**: Next-session smoke testing and UI polish
+**Last Modified**: 2026-05-24
+**Current Focus**: Settings information architecture, documentation split, and terminology/test consistency
 
 **Latest Verification**:
 
-- `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json ok')"`
-- `npm run typecheck`
-- `npm run build`
-- `cmp -s docs/SHOWCASE.md tests/fixtures/test.md && echo synced`
+- `npm run verify`
+- `npm run package:vsix`
 
 ---
 
 ## ✅ Recently Resolved
+
+### Settings And Documentation Inventory
+
+- Kept `README.md` as a concise landing page and moved detailed user documentation into `docs/USER_GUIDE.md`, `docs/SETTINGS.md`, `docs/SETTINGS_STANDARDS.md`, and `docs/COMMONMARK.md`.
+- Added `docs/SETTINGS_TAXONOMY.json` as the canonical machine-readable inventory for every contributed `mdEditor.*` setting.
+- Split `package.json` settings into ordered VS Code Settings UI categories: Appearance, Attachments, Tables, Code Blocks, and Date & Time.
+- Added explicit setting `order` values, dropdown labels/descriptions, setting links, and multiline presentation for date/time template settings.
+- Replaced stale image-reference wording in attachment setting descriptions with attachment terminology.
+- Added `tests/unit/settings-taxonomy.test.mjs` so new settings must include taxonomy metadata, package ordering, docs coverage, and related UI labels.
+- Added `tests/unit/commonmark-compliance.test.mjs` and improved the lightweight Markdown parser so headings inside fenced code blocks are ignored.
+- Updated `tests/README.md` with settings taxonomy and CommonMark coverage rules plus the remaining full round-trip compliance gap.
+- Added future roadmap entries for `MalkDown Editor: Open User Guide`, `MalkDown Editor: Open Settings Reference`, and `MalkDown Editor: Open CommonMark Compatibility` commands.
+- Extended taxonomy tests so every contributed setting must be traceable to source-side reads/defaults, and the user guide must mention contributed command titles plus settings categories.
+- Expanded fast CommonMark/GFM tests to cover matching fenced code markers, portable relative image links, GFM table alignment, and plain Markdown timestamp defaults.
+- Added a future Attachment Maintenance / Orphan Scanner roadmap item: scan workspace attachment folders for unreferenced files, configurable extensions, safe trash-based cleanup, no required external Python dependency, and possible future `.malkdown/` workspace metadata.
+
+### Provisional MalkDown Editor Branding
+
+- Adopted `MalkDown Editor` as the visible product name for now.
+- Kept stable extension IDs, command IDs, and `mdEditor.*` settings keys intact.
+- Added original logo/icon assets in `media/` and wired `media/icon.png` into `package.json`.
+- Added compact light/dark SVG icons for the editor-title `MalkDown Editor` action.
+- Added calmer light/dark README logo variants to avoid the bright first-pass logo on dark backgrounds.
+- Added a discrete `Now with Vitamin R` tagline to the large README logo variants.
+- Refreshed the logo and icons into an original red-white 3D carton style.
+- Revised the large logo toward a deeper perspective carton and changed the VS Code editor-title icon to a flat red/white mark for tiny-size readability.
+- Completed the interrupted package-art retry: kept the editor-title icons unchanged, then updated the large logo/marketplace icon to use separated M-arrow-down marks, a white cap, large red body, and an in-bounds Vitamin R cloud.
+- Rebuilt the shipped large logo and marketplace icon from the red-front `milk-carton-preview.svg` direction. The editor-title icons remain unchanged, and the large logo now includes `Now with vitamin R` and `CommonMark compliant`.
+- Enlarged the editor-title icons after comparing icon bounds: they now use the full 16px canvas, have a roughly 2px white top strip, no red top dots, and a larger M-arrow mark.
+
+### Block Drag/Drop Insertion Indicator
+
+- Re-enabled Milkdown's cursor/drop-indicator feature with the virtual text cursor disabled, so block/node moves show the editor-computed insertion line while dragging.
+- Restyled `.crepe-drop-cursor` into a high-visibility horizontal/vertical insertion rule using VS Code cursor colors.
 
 ### Blank Webview / `renderSpec` Crash
 
@@ -196,6 +228,11 @@ Implemented behavior:
 - generated names scan the target attachment folder and increment the highest matching number
 - first upload prompts when no attachment settings have been explicitly configured
 - removing a local attachment image from the MD editor asks whether to delete the file from disk too
+- attachment cleanup now uses the reusable in-editor dialog system: `Remove attachment?`, `File name: ...`, focused safe `Cancel`, `Remove from Page`, `Move to Trash`, `Delete Everywhere`, collapsed `More details`, and the full path
+- attachment cleanup `More details` now renders separated sections with bold labels, a monospace full path, and red destructive text for `Delete Everywhere`
+- attachment cleanup now includes a recoverable `Move to Trash` option when `mdEditor.attachments.trash.enabled` is true
+- trashed attachments move into the workspace-relative `.attachments-trash` folder by default, preserve their original workspace-relative path, get collision-safe renamed when needed, and append an `index.json` entry for future restore tooling
+- the reusable dialog protocol is host-driven (`showDialog`) and returns a webview `dialogResult`, so future confirmations can reuse the same centered modal, left/right button groups, details disclosure, safe default focus, Escape cancel, and destructive styling
 - the first-upload prompt now uses a short title plus a multi-line detail section
 - confirm/rename uploads now use one `Save Markdown Attachment` popup with buttons for folder selection, original filename, and generated filename
 - `ask-each-time` uploads also use the richer save popup instead of a folder-only prompt
@@ -237,6 +274,14 @@ FEATURES.md + png upload -> .attachments/features-000000001.png
   - Ask before deleting a local attachment file from disk when it is removed from the MD editor.
 - `mdEditor.attachments.generatedNameDigits`
   - Default: `9`, producing `000000001`.
+- `mdEditor.attachments.trash.enabled`
+  - Default: `true`. Shows `Move to Trash` in attachment cleanup.
+- `mdEditor.attachments.trash.folderName`
+  - Default: `.attachments-trash`. Workspace-root relative master trash folder.
+- `mdEditor.attachments.trash.preserveOriginalPath`
+  - Default: `true`. Keeps original workspace-relative paths under the trash root.
+- `mdEditor.attachments.trash.writeIndex`
+  - Default: `true`. Writes `.attachments-trash/index.json` entries for moved files.
 
 ### Naming Rules
 

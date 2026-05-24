@@ -3,11 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MD Editor</title>
+    <title>MalkDown Editor</title>
     <link rel="stylesheet" href="./index.css" />
   </head>
   <body>
-    <div id="editor" aria-label="MD Editor"></div>
+    <div id="editor" aria-label="MalkDown Editor"></div>
     <script>
       (function () {
         var loading = document.querySelector(".md-editor-loading");
@@ -39,7 +39,7 @@
             });
           } catch (error) {
             if (loading) {
-              loading.textContent = "MD Editor log bridge failed: " + stringify(error);
+              loading.textContent = "MalkDown Editor log bridge failed: " + stringify(error);
             }
           }
         };
@@ -66,10 +66,10 @@
           location: String(window.location),
         });
 
-        setLoadingText("Starting MD Editor webview...");
+        setLoadingText("Starting MalkDown Editor webview...");
 
         window.addEventListener("error", function (event) {
-          setLoadingText("MD Editor script failed: " + (event.message || "Unknown error"));
+          setLoadingText("MalkDown Editor script failed: " + (event.message || "Unknown error"));
           postBootLog("window-error", event.message || "Unknown error", {
             filename: event.filename,
             lineno: event.lineno,
@@ -81,7 +81,7 @@
         window.addEventListener("unhandledrejection", function (event) {
           var reason = event.reason;
           var message = reason && reason.message ? reason.message : String(reason || "Unknown error");
-          setLoadingText("MD Editor startup failed: " + message);
+          setLoadingText("MalkDown Editor startup failed: " + message);
           postBootLog("unhandled-rejection", message, reason);
         });
 
@@ -116,7 +116,7 @@
             postBootLog("module-script-load", "Module script load event fired");
           });
           script.addEventListener("error", function (event) {
-            setLoadingText("MD Editor module failed to load.");
+            setLoadingText("MalkDown Editor module failed to load.");
             postBootLog("module-script-error", "Module script error event fired", event);
           });
         } catch (error) {

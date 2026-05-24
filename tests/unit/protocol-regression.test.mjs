@@ -21,9 +21,14 @@ test("shared protocol includes attachment and boot diagnostic messages", async (
     "fatalError",
     "webviewBootLog",
     "editorMounted",
+    "showDialog",
+    "dialogResult",
   ]) {
     assert.match(protocol, new RegExp(`type: "${messageType}"`));
   }
+
+  assert.match(protocol, /interface EditorDialogDetailSection/);
+  assert.match(protocol, /detailsSections\?: EditorDialogDetailSection\[\]/);
 });
 
 test("host provider handles webview attachment and diagnostic messages", async () => {
@@ -35,9 +40,13 @@ test("host provider handles webview attachment and diagnostic messages", async (
     'case "uploadAttachment"',
     'case "resolveAttachmentSrc"',
     'case "copyAttachmentPath"',
+    'case "dialogResult"',
   ]) {
     assert.match(provider, new RegExp(caseLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+
+  assert.match(provider, /_showEditorDialog/);
+  assert.match(provider, /_pendingEditorDialogs/);
 });
 
 test("webview posts mounted, attachment, and copy-path messages", async () => {
@@ -48,9 +57,12 @@ test("webview posts mounted, attachment, and copy-path messages", async () => {
     "uploadAttachment",
     "resolveAttachmentSrc",
     "copyAttachmentPath",
+    "dialogResult",
   ]) {
     assert.match(webview, new RegExp(`type: "${messageType}"`));
   }
+
+  assert.match(webview, /case "showDialog"/);
 });
 
 test("webview bridge reuses the inline acquired VS Code API", async () => {
