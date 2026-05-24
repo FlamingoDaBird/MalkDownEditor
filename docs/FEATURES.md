@@ -47,6 +47,8 @@
 
 - [x] **Block drag/drop insertion indicator**
   - [x] Show a visible insertion line while dragging blocks/nodes so the drop location is clear before release
+  - [ ] Add visual breathing room around the insertion line while dragging blocks, images, or attachment nodes so the line is not hidden against the moved object
+  - [ ] Test drop-cursor spacing for images, tables, headings, paragraphs, and adjacent block moves in light/dark/high-contrast themes
 
 - [x] **Keyboard shortcuts**
   - [x] Ctrl+S / Cmd+S — Save with visual notification
@@ -78,6 +80,13 @@
   - [x] Code Block action for selected block text
   - [x] Destructive link remove action styled red
 
+- [ ] **Link interaction safety**
+  - [ ] Make normal link hover/cursor behavior clear in editable mode, not only in read-only mode
+  - [ ] Avoid accidental web launches while editing; investigate requiring `Ctrl`/`Cmd` + click to open links in editable mode
+  - [ ] Consider a small link popover/menu with actions such as Open Link, Copy Link, Edit Link, and Remove Link
+  - [ ] Preserve simpler direct left-click open behavior in read-only mode if it feels natural there
+  - [ ] Add tests or manual checklist coverage for cursor state, modifier-click behavior, and URL launch prevention
+
 - [x] **Code block polish**
   - [x] Setting to always show the selected language label
   - [x] Setting to always show the Copy button
@@ -103,6 +112,7 @@
 - [ ] **Block and block-range locking**
   - [ ] Lock a single block from the block handle/menu
   - [ ] Lock multiple selected blocks as one locked range
+  - [ ] Support both individual node/block locks and multi-block range locks
   - [ ] Indicate locked ranges with one subtle left rail plus a single hover/selection padlock badge, not one padlock on every block
   - [ ] Prevent edit, delete, cut, drag, and paste-over actions inside locked ranges
   - [ ] Allow copy from locked ranges
@@ -150,6 +160,13 @@
   - [x] Attachment save success/error feedback
   - [ ] Image upload to remote storage (future)
   - [x] **Image zoom/preview dialog** — click any block image to open a full-screen lightbox overlay; close with overlay click, Escape, or × button
+
+- [ ] **Node/image click and context actions**
+  - [ ] Investigate left-click, right-click, and middle-click behaviors for images, attachments, and other selectable nodes
+  - [ ] Consider a compact node action menu with Delete, Copy Path, Copy Markdown, Move to Trash, Lock/Unlock, and Open/Zoom actions
+  - [ ] Avoid stealing common editor selection behavior unless the action is clearly intentional
+  - [ ] Decide whether middle-click should select, open/zoom, or do nothing by default for accessibility and platform consistency
+  - [ ] Add manual verification for mouse actions across Linux/Windows/macOS if behavior differs by platform
 
 - [ ] **Attachment maintenance and orphan scanner**
   - [ ] Add `MalkDown Editor: Scan Orphaned Attachments` command
