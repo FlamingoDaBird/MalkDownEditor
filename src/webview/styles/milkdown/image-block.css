@@ -273,33 +273,42 @@
       justify-content: center;
       align-items: center;
     }
-  .milkdown .milkdown-image-block .image-wrapper .operation {
-      align-items: center;
-      gap: 12px;
-      right: 12px;
-      top: 12px;
-      opacity: 0;
-      transition: all 0.2s;
-    }
-  .milkdown .milkdown-image-block:hover > .image-wrapper .operation {
-      opacity: 1;
-    }
+	  .milkdown .milkdown-image-block .image-wrapper .operation {
+	      align-items: center;
+	      gap: 6px;
+	      left: 50%;
+	      bottom: calc(100% - 1px);
+	      transform: translateX(-50%);
+	      z-index: 4;
+	      box-sizing: border-box;
+	      padding: 5px;
+	      border: 1px solid var(--vscode-panel-border, var(--crepe-color-outline));
+	      border-radius: 8px 8px 0 0;
+	      background: var(--vscode-panel-background, var(--crepe-color-surface));
+	      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32);
+	      opacity: 0;
+	      transition: all 0.2s;
+	    }
+	  .milkdown .milkdown-image-block:hover > .image-wrapper .operation,
+	  .milkdown .milkdown-image-block > .image-wrapper .operation:focus-within {
+	      opacity: 1;
+	    }
   .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       box-sizing: border-box;
-      flex: 0 0 32px;
-      border: 0;
-      color: var(--crepe-color-on-inverse);
-      padding: 4px;
-      background: var(--crepe-color-inverse);
-      opacity: 0.6;
-      border-radius: 50%;
-      width: 32px;
-      height: 32px;
-      line-height: 1;
-    }
+	      flex: 0 0 30px;
+	      border: 0;
+	      color: var(--vscode-editor-foreground, var(--crepe-color-on-background));
+	      padding: 4px;
+	      background: transparent;
+	      opacity: 0.82;
+	      border-radius: 50%;
+	      width: 30px;
+	      height: 30px;
+	      line-height: 1;
+	    }
   .milkdown .milkdown-image-block .image-wrapper .operation > button.operation-item {
       appearance: none;
       font: inherit;
@@ -307,10 +316,14 @@
   .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-zoom-button {
       opacity: 0.92;
     }
-  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-copy-path-button,
-  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-lock-button {
-      opacity: 0.92;
-    }
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-copy-attachment-button,
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-copy-file-path-button,
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-resize-smaller-button,
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-resize-larger-button,
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-resize-reset-button,
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-lock-button {
+	      opacity: 0.92;
+	    }
   .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-lock-button--locked {
       color: var(--crepe-color-primary);
       background: color-mix(
@@ -342,11 +355,16 @@
       );
       opacity: 0.7;
     }
-  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-zoom-button:hover,
-  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-copy-path-button:hover,
-  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-lock-button:hover {
-      opacity: 1;
-    }
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-zoom-button:hover,
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-copy-attachment-button:hover,
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-copy-file-path-button:hover,
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-resize-smaller-button:hover,
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-resize-larger-button:hover,
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-resize-reset-button:hover,
+	  .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-lock-button:hover {
+	      background: var(--crepe-color-hover);
+	      opacity: 1;
+	    }
   .milkdown .milkdown-image-block .image-wrapper .operation > .operation-item.md-image-delete-button:not(:disabled):hover {
       background: color-mix(
         in srgb,
@@ -375,14 +393,7 @@
         height: 24px;
       }
   .milkdown .milkdown-image-block .image-wrapper .image-resize-handle {
-      height: 4px;
-      bottom: -2px;
-      max-width: 160px;
-      width: 100%;
-      background: var(--crepe-color-outline);
-      opacity: 0;
-      transition: all 0.2s;
-      border-radius: 4px;
+      display: none;
     }
   .milkdown .milkdown-image-block:hover > .image-wrapper .image-resize-handle {
       opacity: 1;

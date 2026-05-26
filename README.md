@@ -46,6 +46,7 @@ Then press `F5` in VS Code to launch the Extension Development Host. Open a `.md
 - [Settings Reference](docs/SETTINGS.md): all `mdEditor.*` settings grouped by topic.
 - [Settings Standards](docs/SETTINGS_STANDARDS.md): how future settings should be named, documented, categorized, and tested.
 - [CommonMark Compatibility](docs/COMMONMARK.md): Markdown compatibility policy and test expectations.
+- [Security And Privacy](docs/SECURITY.md): pre-commit sweep, automated guardrails, and active risk tracker.
 - [Showcase Document](docs/SHOWCASE.md): source-of-truth smoke document mirrored into `tests/fixtures/test.md`.
 - [Feature Roadmap](docs/FEATURES.md): current feature checklist and future work.
 - [Bug Tracker](docs/BUGS.md): active and resolved bugs.
@@ -57,12 +58,14 @@ npm run build
 npm run watch
 npm run typecheck
 npm test
+npm run test:security
 npm run verify
 npm run package:vsix
 ```
 
-- `npm test` runs the fast unit and regression suite.
-- `npm run verify` runs typecheck, production build, and tests.
+- `npm test` runs the fast unit/regression suite and security/privacy sweep.
+- `npm run test:security` runs repository guardrails for obvious secrets and private information.
+- `npm run verify` runs typecheck, production build, unit tests, and security/privacy checks.
 - `npm run package:vsix` writes a packaged extension into `artifacts/`.
 
 ## Packaging And Releases
@@ -76,13 +79,13 @@ npm run package:vsix
 
 The latest packaged preview release is:
 
-- [v0.1.2 release](https://github.com/FlamingoDaBird/MalkDownEditor/releases/tag/v0.1.2)
-- Installable asset: `md-editor-0.1.2.vsix`
+- [v0.1.3 release](https://github.com/FlamingoDaBird/MalkDownEditor/releases/tag/v0.1.3)
+- Installable asset: `md-editor-0.1.3.vsix`
 
 To test a packaged build locally:
 
 ```bash
-code --install-extension artifacts/md-editor-0.1.2.vsix
+code --install-extension artifacts/md-editor-0.1.3.vsix
 ```
 
 ## AI Assistance

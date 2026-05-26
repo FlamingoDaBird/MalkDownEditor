@@ -7,15 +7,17 @@ This folder contains automated checks for MalkDown Editor.
 ```bash
 npm test
 npm run test:unit
+npm run test:security
 npm run test:watch
 npm run verify
 npm run test:ci
 ```
 
-- `npm test` runs the fast unit and regression suite.
+- `npm test` runs the fast unit/regression suite and the security/privacy sweep.
 - `npm run test:unit` runs the same suite directly with Node's built-in test runner.
+- `npm run test:security` runs repository guardrails for obvious secrets, tracked environment files, private-key blocks, and non-allowlisted email addresses.
 - `npm run test:watch` reruns unit tests while files change.
-- `npm run verify` runs TypeScript validation, production build, and the test suite.
+- `npm run verify` runs TypeScript validation, production build, the unit suite, and the security/privacy sweep.
 - `npm run test:ci` is an alias for `npm run verify`.
 
 The test runner uses the `spec` reporter so each checked behavior is printed in the terminal.
@@ -33,10 +35,12 @@ The test runner uses the `spec` reporter so each checked behavior is printed in 
 - `tests/unit/commonmark-compliance.test.mjs` guards the CommonMark/GFM compatibility policy, fenced-code heading behavior, portable local image links, GFM table structure, and plain Markdown timestamp defaults.
 - `tests/unit/package-manifest.test.mjs` verifies command and custom-editor manifest consistency.
 - `tests/unit/project-process.test.mjs` verifies that the testing procedure remains visible to agents.
+- `tests/security/security-privacy-sweep.test.mjs` verifies that tracked files do not contain obvious private emails, tracked `.env` files, private-key blocks, or common secret assignments.
 
 ## When To Run Tests
 
 - Run `npm test` after focused test, fixture, helper, manifest, and regression-guard changes.
+- Run `npm run test:security` before committing or pushing to GitHub, and after changes to webview HTML/CSP, message protocol, attachment handling, packaging, docs, fixtures, or repository metadata.
 - Run `npm run verify` before handing off any source, protocol, package, attachment, or webview behavior change.
 - Run `npm run verify` before packaging or sharing a build.
 
@@ -48,6 +52,7 @@ The test runner uses the `spec` reporter so each checked behavior is printed in 
 - Add CommonMark or fixture coverage when a feature creates Markdown syntax, managed comments, raw HTML blocks, generated tables, or attachment references.
 - Update fixture tests when `tests/fixtures/test.md` is changed intentionally.
 - Add process tests when project procedures change, so agents keep seeing the right instructions.
+- Add security/privacy tests when a security policy becomes machine-checkable, for example CSP presence, message validation, attachment upload limits, package exclusions, or secret-pattern detection.
 - If a feature can only be verified in VS Code manually for now, document the manual steps here or in `docs/BUGS.md` and note the gap in the final response.
 
 ## Test Layers
@@ -55,6 +60,7 @@ The test runner uses the `spec` reporter so each checked behavior is printed in 
 - Unit/regression tests live in `tests/unit/` and should stay fast and deterministic.
 - Fixture tests protect `tests/fixtures/test.md` and required local attachments.
 - Manifest/process tests protect package metadata and agent-facing procedures.
+- Security/privacy tests protect repository hygiene and release guardrails.
 - Settings taxonomy tests protect Settings UI categories, ordering, help text, and terminology consistency.
 - CommonMark policy tests protect the current Markdown compatibility rules and parser assumptions.
 - Future VS Code integration tests should live in a separate folder, for example `tests/integration/`, because they launch an Extension Development Host.
@@ -71,7 +77,7 @@ These are important behaviors that are not fully covered by the current fast uni
 - Webview pointer workflows: image hover buttons, lock toggle, copy path, delete, direct drag blocking, middle-click selection, and right-click/lightbox behavior.
 - Lightbox interaction details: wheel zoom, max zoom, left-click reset, right-click close, Escape close, and blocking Delete/Backspace while zoomed.
 - Visual polish: horizontal button alignment, hover hit areas, red destructive styling, and screenshot-level layout checks across themes and viewport sizes.
-- Clipboard integration: copy image path writing the expected full path to the VS Code clipboard.
+- Clipboard integration: image `Copy Attachment` and `Copy File Path` actions writing the expected values to the VS Code clipboard.
 - VS Code context menu limitations: empty-editor context menu behavior and whether VS Code allows overriding cut/copy/paste for image-specific actions.
 - Full Markdown round-trip compliance through Milkdown/Crepe: the current fast tests protect policy and lightweight parser behavior, but full CommonMark example coverage needs a future integration or parser-level suite.
 

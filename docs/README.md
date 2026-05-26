@@ -8,6 +8,7 @@ This folder keeps project working documents out of the repository root while lea
 - `COMMONMARK.md` - Markdown compatibility policy, known boundaries, and test expectations.
 - `FEATURES.md` - feature checklist and roadmap.
 - `PROJECT_CHECKPOINT_GUIDE.md` - guidance for saving development checkpoints.
+- `SECURITY.md` - security/privacy tracker, pre-commit sweep, and active risk list.
 - `SETTINGS.md` - user-facing settings reference grouped by topic.
 - `SETTINGS_STANDARDS.md` - rules for adding settings and keeping terminology consistent.
 - `SETTINGS_TAXONOMY.json` - machine-readable settings inventory used by tests.

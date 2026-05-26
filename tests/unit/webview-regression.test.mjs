@@ -27,6 +27,54 @@ test("image hover mutation refresh is debounced", async () => {
   assert.match(source, /new MutationObserver\(\(\) => \{\s+scheduleImageActionRefresh\(\);/);
 });
 
+test("image actions include above-image toolbar and distinct copy buttons", async () => {
+  const source = await readWebviewSource();
+  const css = await readFile(
+    path.join(repoRoot, "src", "webview", "styles", "milkdown", "image-block.css"),
+    "utf8",
+  );
+
+  assert.match(source, /md-image-copy-attachment-button/);
+  assert.match(source, /Copy attachment/);
+  assert.match(source, /md-image-copy-file-path-button/);
+  assert.match(source, /Copy file path/);
+  assert.match(source, /function copyAttachmentImage/);
+  assert.match(source, /new ClipboardItem/);
+  assert.match(source, /function applyImageControlLabels/);
+  assert.match(source, /Edit image description/);
+  assert.match(source, /function focusImageCaptionInput/);
+  assert.match(source, /imageBlock\.removeAttribute\("title"\)/);
+  assert.match(source, /imageBlock\.setAttribute\("aria-label", title\)/);
+  assert.doesNotMatch(source, /imageBlock\.setAttribute\("title", title\)/);
+  assert.match(css, /left: 50%/);
+  assert.match(css, /bottom: calc\(100% - 1px\)/);
+  assert.match(css, /transform: translateX\(-50%\)/);
+  assert.match(css, /var\(--vscode-panel-background/);
+  assert.match(css, /operation:focus-within/);
+});
+
+test("image resize uses toolbar controls instead of the drag handle", async () => {
+  const source = await readWebviewSource();
+  const css = await readFile(
+    path.join(repoRoot, "src", "webview", "styles", "milkdown", "image-block.css"),
+    "utf8",
+  );
+
+  for (const className of [
+    "md-image-resize-smaller-button",
+    "md-image-resize-larger-button",
+    "md-image-resize-reset-button",
+  ]) {
+    assert.match(source, new RegExp(className));
+    assert.match(css, new RegExp(className));
+  }
+
+  assert.match(source, /setNodeAttribute\(position, "ratio", nextRatio\)/);
+  assert.match(source, /function resetImageResizeRatio/);
+  assert.match(source, /setImageResizeRatio\(imageBlock, 1\)/);
+  assert.match(css, /\.image-resize-handle \{\s+display: none;/);
+});
+
 test("webview html does not ship a static loading placeholder", async () => {
   const html = await readFile(
     path.join(repoRoot, "src", "webview", "index.html"),

@@ -49,7 +49,7 @@ test("host provider handles webview attachment and diagnostic messages", async (
   assert.match(provider, /_pendingEditorDialogs/);
 });
 
-test("webview posts mounted, attachment, and copy-path messages", async () => {
+test("webview posts mounted, attachment, and copy messages", async () => {
   const webview = await readSource("src", "webview", "index.ts");
 
   for (const messageType of [

@@ -160,10 +160,18 @@
   - [x] Attachment save success/error feedback
   - [ ] Image upload to remote storage (future)
   - [x] **Image zoom/preview dialog** — click any block image to open a full-screen lightbox overlay; close with overlay click, Escape, or × button
+  - [x] Move image hover actions above the image on a solid editor-themed toolbar so icons stay readable on busy/dark/light image backgrounds
+  - [x] Keep the above-image toolbar interactive by preserving the current custom button event interception and ensuring hover/focus does not collapse the toolbar while clicking
+  - [x] Split image copy actions into separate `Copy Attachment` and `Copy File Path` buttons
+  - [x] Give `Copy File Path` a distinct file/path-style icon so it is not confused with copying the attachment reference
+  - [x] Focus the caption/description input immediately after clicking the image description button
+  - [x] Replace the finicky bottom drag resize handle with image toolbar controls for smaller, larger, and reset size
+  - [x] Persist image toolbar resize changes using Milkdown's image `ratio` attribute so reset can restore the original rendered size later
+  - [ ] Review image resizing UX after use: consider a single Resize toolbar button, preset sizes from settings, drag-to-resize mode, and resize modes that either preserve aspect ratio or allow freeform resizing
 
 - [ ] **Node/image click and context actions**
   - [ ] Investigate left-click, right-click, and middle-click behaviors for images, attachments, and other selectable nodes
-  - [ ] Consider a compact node action menu with Delete, Copy Path, Copy Markdown, Move to Trash, Lock/Unlock, and Open/Zoom actions
+  - [ ] Consider a compact node action menu with Delete, Copy Attachment, Copy File Path, Copy Markdown, Move to Trash, Lock/Unlock, and Open/Zoom actions
   - [ ] Avoid stealing common editor selection behavior unless the action is clearly intentional
   - [ ] Decide whether middle-click should select, open/zoom, or do nothing by default for accessibility and platform consistency
   - [ ] Add manual verification for mouse actions across Linux/Windows/macOS if behavior differs by platform

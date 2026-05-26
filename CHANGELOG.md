@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.3 - 2026-05-26
+
+Image toolbar, security hygiene, and release guardrail update.
+
+- Added `docs/SECURITY.md` as the security/privacy tracker and pre-commit sweep checklist.
+- Added `npm run test:security` and included it in `npm test` and `npm run verify`.
+- Added automated security/privacy checks for tracked environment files, private-key blocks, common secret assignments, and non-allowlisted email addresses.
+- Moved image hover actions above images on a centered, solid editor-themed toolbar so icons remain readable.
+- Split image actions into `Copy Attachment` and `Copy File Path`.
+- Added image-data clipboard copy for `Copy Attachment`, with `Copy File Path` retained for filesystem workflows.
+- Added tooltip/label coverage for the generated image description button.
+- Clicking the image description button now focuses the caption input immediately.
+- Replaced the finicky bottom drag resize handle with toolbar controls for smaller, larger, and reset size.
+- Persisted toolbar resize changes through Milkdown's image `ratio` attribute so reset can restore the original rendered size baseline.
+- Added roadmap follow-up to review image resizing UX, preset sizes, drag mode, and ratio-preserving/freeform resize modes.
+
 ## 0.1.2 - 2026-05-24
 
 Settings, documentation, attachment safety, and branding release.

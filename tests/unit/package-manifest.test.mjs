@@ -27,6 +27,7 @@ test("package exposes automated test and verification scripts", async () => {
   for (const script of [
     "test",
     "test:unit",
+    "test:security",
     "test:watch",
     "verify",
     "test:ci",
@@ -42,6 +43,8 @@ test("package exposes automated test and verification scripts", async () => {
   assert.match(manifest.scripts.verify, /typecheck/);
   assert.match(manifest.scripts.verify, /build/);
   assert.match(manifest.scripts.verify, /test:unit/);
+  assert.match(manifest.scripts.verify, /test:security/);
+  assert.match(manifest.scripts.test, /test:security/);
   assert.match(manifest.scripts["package:vsix"], /artifacts/);
 });
 

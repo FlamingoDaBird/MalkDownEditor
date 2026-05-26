@@ -46,6 +46,7 @@ A VS Code extension that provides a WYSIWYG Markdown editor using Milkdown Crepe
 | `esbuild.mjs`              | Dual-target build script             |
 | `docs/BUGS.md`             | Active and resolved bug tracker      |
 | `docs/FEATURES.md`         | Feature checklist and roadmap        |
+| `docs/SECURITY.md`         | Security/privacy tracker and pre-commit sweep |
 | `docs/SESSION_SUMMARY.md`  | Current development checkpoint       |
 | `docs/SHOWCASE.md`         | Source-of-truth smoke Markdown document |
 | `tests/README.md`          | Automated test strategy and procedure |
@@ -87,6 +88,9 @@ npm run typecheck
 # Fast automated tests
 npm test
 
+# Security/privacy sweep
+npm run test:security
+
 # Full local verification
 npm run verify
 ```
@@ -110,6 +114,9 @@ npm run typecheck
 # Build
 npm run build
 
+# Security/privacy sweep
+npm run test:security
+
 # Full local verification: typecheck + build + tests
 npm run verify
 
@@ -119,9 +126,12 @@ vsce package
 
 See `tests/README.md` for the current test strategy, coverage map, and expansion rules.
 
+Security and privacy review lives in `docs/SECURITY.md`. Read it before committing or pushing to GitHub, keep it updated with active risks, and run the security/privacy sweep as part of handoff.
+
 ### Test Procedure for Agents
 
 - Run `npm test` after changes to pure helpers, fixtures, package metadata, docs that describe testing, or focused webview regressions covered by `tests/unit/`.
+- Run `npm run test:security` before committing or pushing to GitHub, and after changes touching webview HTML/CSP, message protocol, attachment handling, packaging, docs, fixtures, or repository metadata.
 - Run `npm run verify` before handing off any source, protocol, package, attachment, or webview behavior change.
 - Add or update tests in the same change when fixing a bug or adding a feature. Bug fixes should get a regression test that fails for the old behavior. Features should get the fastest useful unit/fixture/protocol test first, then a VS Code integration test when the behavior depends on the custom editor host.
 - If a change cannot be tested automatically yet, document the gap in `tests/README.md` or `docs/BUGS.md`, and include the manual verification steps in the final response.
@@ -173,3 +183,4 @@ AGENTS.md (auto-loaded)
 - **Message protocol** is defined in `src/shared/protocol.ts`
 - **Themes** are handled via CSS variables from VS Code
 - **State sync** must handle version conflicts gracefully
+- **Security/privacy tracking** lives in `docs/SECURITY.md`; check it before GitHub commits and update it when risks are found or fixed

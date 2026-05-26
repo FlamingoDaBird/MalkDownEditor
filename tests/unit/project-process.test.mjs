@@ -37,6 +37,7 @@ test("docs README tracks moved project documentation", async () => {
     "COMMONMARK.md",
     "FEATURES.md",
     "PROJECT_CHECKPOINT_GUIDE.md",
+    "SECURITY.md",
     "SETTINGS.md",
     "SETTINGS_STANDARDS.md",
     "SETTINGS_TAXONOMY.json",
@@ -56,7 +57,22 @@ test("root README stays a concise landing page and links detailed docs", async (
   assert.match(readme, /docs\/USER_GUIDE\.md/);
   assert.match(readme, /docs\/SETTINGS\.md/);
   assert.match(readme, /docs\/COMMONMARK\.md/);
+  assert.match(readme, /docs\/SECURITY\.md/);
   assert.doesNotMatch(readme, /## Settings\n[\s\S]*mdEditor\.attachments\.locationMode/);
+});
+
+test("security tracker is visible to agents and test docs", async () => {
+  const agents = await readProjectFile("AGENTS.md");
+  const testsReadme = await readProjectFile("tests", "README.md");
+  const security = await readProjectFile("docs", "SECURITY.md");
+
+  assert.match(agents, /docs\/SECURITY\.md/);
+  assert.match(agents, /before committing or pushing to GitHub/i);
+  assert.match(agents, /npm run test:security/);
+  assert.match(testsReadme, /npm run test:security/);
+  assert.match(security, /Pre-Commit Sweep/);
+  assert.match(security, /Current Security Findings/);
+  assert.match(security, /Automated Checks/);
 });
 
 test("packaged extension keeps user-facing docs linked from README", async () => {

@@ -332,7 +332,7 @@ const imageZoomIcon = `
   </svg>
 `;
 
-const imageCopyPathIcon = `
+const imageCopyAttachmentIcon = `
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="24"
@@ -342,6 +342,62 @@ const imageCopyPathIcon = `
     <path
       fill="currentColor"
       d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"
+    />
+  </svg>
+`;
+
+const imageCopyFilePathIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      fill="currentColor"
+      d="M5 3h8.5L19 8.5V21H5V3Zm8 2v4h4l-4-4ZM7 5v14h10v-8h-6V5H7Zm1.5 10H10v1.5H8.5V15Zm2.5 0h1.5v1.5H11V15Zm2.5 0H15v1.5h-1.5V15Z"
+    />
+  </svg>
+`;
+
+const imageResizeSmallerIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      fill="currentColor"
+      d="M5 5h14v14H5V5Zm2 2v10h10V7H7Zm2 4h6v2H9v-2Z"
+    />
+  </svg>
+`;
+
+const imageResizeLargerIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      fill="currentColor"
+      d="M5 5h14v14H5V5Zm2 2v10h10V7H7Zm4 2h2v2h2v2h-2v2h-2v-2H9v-2h2V9Z"
+    />
+  </svg>
+`;
+
+const imageResizeResetIcon = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+  >
+    <path
+      fill="currentColor"
+      d="M12 5a7 7 0 1 1-6.32 4H3V7h6v6H7v-2.62A5 5 0 1 0 12 7V5Zm-2 5h4v4h-4v-4Z"
     />
   </svg>
 `;
@@ -1082,7 +1138,7 @@ bridge.onMessage((message) => {
       break;
     case "attachmentPathCopied":
       if (msg.ok) {
-        showEditorToast("Image path copied", "success");
+        showEditorToast("Image file path copied", "success");
       } else if (msg.message) {
         showEditorToast(`Copy failed: ${msg.message}`, "error");
       }
@@ -2608,9 +2664,23 @@ function applyTableControlLabels(root: ParentNode = document) {
   }
 }
 
+function applyImageControlLabels(root: ParentNode = document) {
+  for (const imageBlock of Array.from(
+    root.querySelectorAll<HTMLElement>(".milkdown-image-block"),
+  )) {
+    const generatedCaptionButton = imageBlock.querySelector<HTMLElement>(
+      ".image-wrapper .operation > .operation-item:not(.md-image-action-button)",
+    );
+    if (generatedCaptionButton) {
+      setControlLabel(generatedCaptionButton, "Edit image description");
+    }
+  }
+}
+
 function applyGeneratedControlLabels(root: ParentNode = document) {
   applyToolbarButtonLabels(root);
   applyTableControlLabels(root);
+  applyImageControlLabels(root);
 }
 
 function installGeneratedControlLabels(root: HTMLElement) {
@@ -3030,7 +3100,7 @@ function findImageBlockPosition(
 
 function imageBlockInfo(
   imageBlock: HTMLElement,
-): { src: string; caption: string } | undefined {
+): { src: string; caption: string; ratio: number } | undefined {
   if (!editor) return undefined;
 
   try {
@@ -3045,11 +3115,17 @@ function imageBlockInfo(
       return {
         src: String(node.attrs.src ?? ""),
         caption: String(node.attrs.caption ?? ""),
+        ratio: normalizeImageRatio(node.attrs.ratio),
       };
     });
   } catch {
     return undefined;
   }
+}
+
+function normalizeImageRatio(value: unknown): number {
+  const ratio = Number(value);
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
 }
 
 function updateImageBlockHoverMetadata(imageBlock: HTMLElement): void {
@@ -3060,7 +3136,8 @@ function updateImageBlockHoverMetadata(imageBlock: HTMLElement): void {
     : "Image";
   const img = imageBlock.querySelector<HTMLImageElement>("img");
 
-  imageBlock.setAttribute("title", title);
+  imageBlock.removeAttribute("title");
+  imageBlock.setAttribute("aria-label", title);
   img?.setAttribute("title", title);
 }
 
@@ -3107,6 +3184,144 @@ function updateImageBlockLockState(imageBlock: HTMLElement): void {
       locked ? "Image locked" : "Delete image",
     );
     deleteButton.setAttribute("title", locked ? "Image locked" : "Delete image");
+  }
+}
+
+function focusImageCaptionInput(imageBlock: HTMLElement): void {
+  const input = imageBlock.querySelector<HTMLInputElement>(".caption-input");
+  if (!input) return;
+
+  input.focus();
+  const cursor = input.value.length;
+  input.setSelectionRange(cursor, cursor);
+}
+
+async function copyAttachmentImage(imageBlock: HTMLElement): Promise<void> {
+  const img = imageBlock.querySelector<HTMLImageElement>("img");
+  if (!img?.src) throw new Error("Image source is empty.");
+
+  const clipboard = navigator.clipboard as Clipboard & {
+    write?: (items: ClipboardItem[]) => Promise<void>;
+  };
+  if (typeof clipboard.write !== "function" || typeof ClipboardItem === "undefined") {
+    throw new Error("Copying image attachments is not supported by this VS Code webview.");
+  }
+
+  const response = await fetch(img.src);
+  if (!response.ok) {
+    throw new Error(`Could not read image data (${response.status}).`);
+  }
+
+  let blob = await response.blob();
+  if (!blob.type.startsWith("image/")) {
+    throw new Error("Attachment is not an image.");
+  }
+
+  if (
+    typeof ClipboardItem.supports === "function" &&
+    !ClipboardItem.supports(blob.type)
+  ) {
+    blob = await imageElementToPngBlob(img);
+  }
+
+  await clipboard.write([
+    new ClipboardItem({
+      [blob.type]: blob,
+    }),
+  ]);
+}
+
+function imageElementToPngBlob(img: HTMLImageElement): Promise<Blob> {
+  if (!img.naturalWidth || !img.naturalHeight) {
+    return Promise.reject(new Error("Image is not ready to copy."));
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return Promise.reject(new Error("Could not prepare image for clipboard."));
+  }
+
+  try {
+    context.drawImage(img, 0, 0);
+  } catch {
+    return Promise.reject(new Error("Could not prepare image for clipboard."));
+  }
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error("Could not prepare image for clipboard."));
+      }
+    }, "image/png");
+  });
+}
+
+function applyImageRatioToElement(imageBlock: HTMLElement, ratio: number): void {
+  const img = imageBlock.querySelector<HTMLImageElement>("img");
+  if (!img) return;
+
+  const currentRatio = imageBlockInfo(imageBlock)?.ratio ?? 1;
+  const datasetOrigin = Number(img.dataset.origin);
+  const rectHeight = img.getBoundingClientRect().height;
+  const fallbackOrigin = currentRatio > 0 && Number.isFinite(rectHeight)
+    ? rectHeight / currentRatio
+    : undefined;
+  const origin = Number.isFinite(datasetOrigin) && datasetOrigin > 0
+    ? datasetOrigin
+    : fallbackOrigin;
+  if (!origin || !Number.isFinite(origin)) return;
+
+  const nextHeight = Number((origin * ratio).toFixed(2));
+  img.dataset.origin = origin.toFixed(2);
+  img.dataset.height = String(nextHeight);
+  img.style.height = `${nextHeight}px`;
+}
+
+function setImageResizeRatio(imageBlock: HTMLElement, ratio: number): boolean {
+  if (!editor) return false;
+  if (shouldBlockEditAction()) return false;
+  if (isImageBlockLocked(imageBlock)) {
+    showEditorToast("Image is locked.", "error");
+    return false;
+  }
+
+  const nextRatio = Math.max(0.25, Math.min(3, Number(ratio.toFixed(2))));
+  const applied = editor.editor.action((ctx) => {
+    const view = ctx.get(editorViewCtx);
+    const position = findImageBlockPosition(view, imageBlock);
+    if (position === undefined) return false;
+
+    const node = view.state.doc.nodeAt(position);
+    if (!node || !isImageBlockNode(node)) return false;
+
+    view.dispatch(
+      view.state.tr.setNodeAttribute(position, "ratio", nextRatio).scrollIntoView(),
+    );
+    return true;
+  });
+
+  if (applied) {
+    applyImageRatioToElement(imageBlock, nextRatio);
+    window.requestAnimationFrame(() => applyImageRatioToElement(imageBlock, nextRatio));
+  }
+
+  return applied;
+}
+
+function adjustImageResizeRatio(imageBlock: HTMLElement, delta: number): void {
+  const currentRatio = imageBlockInfo(imageBlock)?.ratio ?? 1;
+  if (setImageResizeRatio(imageBlock, currentRatio + delta)) {
+    showEditorToast(`Image size ${Math.round((currentRatio + delta) * 100)}%`, "success");
+  }
+}
+
+function resetImageResizeRatio(imageBlock: HTMLElement): void {
+  if (setImageResizeRatio(imageBlock, 1)) {
+    showEditorToast("Image size reset", "success");
   }
 }
 
@@ -3286,12 +3501,52 @@ function ensureImageActionButtons(root: HTMLElement): void {
         );
       }
 
-      if (!operation.querySelector(".md-image-copy-path-button")) {
+      if (!operation.querySelector(".md-image-copy-attachment-button")) {
         operation.appendChild(
           createImageActionButton(
-            "md-image-copy-path-button",
-            imageCopyPathIcon,
-            "Copy image path",
+            "md-image-copy-attachment-button",
+            imageCopyAttachmentIcon,
+            "Copy attachment",
+          ),
+        );
+      }
+
+      if (!operation.querySelector(".md-image-copy-file-path-button")) {
+        operation.appendChild(
+          createImageActionButton(
+            "md-image-copy-file-path-button",
+            imageCopyFilePathIcon,
+            "Copy file path",
+          ),
+        );
+      }
+
+      if (!operation.querySelector(".md-image-resize-smaller-button")) {
+        operation.appendChild(
+          createImageActionButton(
+            "md-image-resize-smaller-button",
+            imageResizeSmallerIcon,
+            "Make image smaller",
+          ),
+        );
+      }
+
+      if (!operation.querySelector(".md-image-resize-larger-button")) {
+        operation.appendChild(
+          createImageActionButton(
+            "md-image-resize-larger-button",
+            imageResizeLargerIcon,
+            "Make image larger",
+          ),
+        );
+      }
+
+      if (!operation.querySelector(".md-image-resize-reset-button")) {
+        operation.appendChild(
+          createImageActionButton(
+            "md-image-resize-reset-button",
+            imageResizeResetIcon,
+            "Reset image size",
           ),
         );
       }
@@ -3376,6 +3631,17 @@ function installImageActionControls(root: HTMLElement): void {
 
     const button = target.closest<HTMLButtonElement>(".md-image-action-button");
     if (!button) {
+      const captionButton = target.closest<HTMLElement>(
+        ".image-wrapper .operation > .operation-item:not(.md-image-action-button)",
+      );
+      if (captionButton) {
+        const imageBlock = captionButton.closest<HTMLElement>(".milkdown-image-block");
+        if (imageBlock) {
+          window.setTimeout(() => focusImageCaptionInput(imageBlock), 0);
+        }
+        return;
+      }
+
       if (
         target instanceof HTMLImageElement &&
         target.closest(".milkdown-image-block")
@@ -3397,10 +3663,20 @@ function installImageActionControls(root: HTMLElement): void {
       return;
     }
 
-    if (button.classList.contains("md-image-copy-path-button")) {
+    if (button.classList.contains("md-image-copy-attachment-button")) {
+      void copyAttachmentImage(imageBlock).then(
+        () => showEditorToast("Attachment image copied", "success"),
+      ).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        showEditorToast(`Copy failed: ${message}`, "error");
+      });
+      return;
+    }
+
+    if (button.classList.contains("md-image-copy-file-path-button")) {
       const info = imageBlockInfo(imageBlock);
       if (!info?.src) {
-        showEditorToast("Could not copy image path", "error");
+        showEditorToast("Could not copy file path", "error");
         return;
       }
 
@@ -3408,6 +3684,21 @@ function installImageActionControls(root: HTMLElement): void {
         const message = error instanceof Error ? error.message : String(error);
         showEditorToast(`Copy failed: ${message}`, "error");
       });
+      return;
+    }
+
+    if (button.classList.contains("md-image-resize-smaller-button")) {
+      adjustImageResizeRatio(imageBlock, -0.1);
+      return;
+    }
+
+    if (button.classList.contains("md-image-resize-larger-button")) {
+      adjustImageResizeRatio(imageBlock, 0.1);
+      return;
+    }
+
+    if (button.classList.contains("md-image-resize-reset-button")) {
+      resetImageResizeRatio(imageBlock);
       return;
     }
 
