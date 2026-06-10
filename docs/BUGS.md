@@ -4,7 +4,15 @@ This file tracks known bugs and issues for the MalkDown Editor VS Code extension
 
 ## Active Bugs
 
-No active bugs are currently tracked.
+### BUG-010: Mermaid preview still needs final interaction polish
+- **Status:** ACTIVE
+- **Severity:** Minor
+- **Description:** Mermaid SVG rendering now works, but the feature is not fully finished. The user has seen intermittent cases where Mermaid preview stops rendering again during editing, and the current Mermaid preview controls still need UX polish.
+- **Follow-up reminders for next resume:**
+  - Re-test for intermittent "no rendering again" / stuck Mermaid preview behavior.
+  - Move Mermaid preview controls to the top-right corner.
+  - Replace text labels with icons.
+  - Show Mermaid preview controls only on hover.
 
 Resolved bugs are kept below for recent context. We can move older resolved entries to an archive file later if this tracker becomes hard to scan.
 

@@ -5,6 +5,18 @@
 **Last Modified**: 2026-05-24
 **Current Focus**: Settings information architecture, documentation split, and terminology/test consistency
 
+## Resume Reminder
+
+Before starting new work next time, remind the user that Mermaid is not fully finished yet.
+
+Open Mermaid follow-up items to revisit on resume:
+
+- Mermaid rendering is improved, but still not considered 100% stable in all editor interactions.
+- Recheck the intermittent "no rendering again" / stuck-preview behavior during real editing sessions.
+- Mermaid preview controls should move to the top-right corner of the preview.
+- Mermaid preview controls should use icons instead of text labels.
+- Mermaid preview controls should only be visible on hover.
+
 **Latest Verification**:
 
 - `npm run verify`
