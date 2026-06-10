@@ -1,10 +1,10 @@
 import { build } from "esbuild";
 import { mkdir } from "node:fs/promises";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
 export const repoRoot = path.resolve(
-  new URL("../../..", import.meta.url).pathname,
+  fileURLToPath(new URL("../../..", import.meta.url)),
 );
 
 export async function importTypeScriptModule(entryPath) {

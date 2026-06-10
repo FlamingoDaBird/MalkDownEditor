@@ -9,6 +9,8 @@
 
 MalkDown Editor is a WYSIWYG Markdown editor for VS Code and VSCodium. It uses [Milkdown](https://milkdown.dev/) and the [Milkdown Crepe editor](https://milkdown.dev/docs/guide/using-crepe) to edit Markdown files in a rich editor while keeping the source file as Markdown on disk.
 
+> Built with human direction and AI-assisted coding. OpenAI Codex and similar tools have been used for implementation support, documentation work, and review-style reasoning during development.
+
 The compatibility target is CommonMark-style Markdown plus GitHub Flavored Markdown tables. See [CommonMark Compatibility](docs/COMMONMARK.md) for the current policy and limits.
 
 ## Quick Start

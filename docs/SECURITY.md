@@ -26,6 +26,7 @@ Before committing or pushing to GitHub:
 
 Open items to track:
 
+- Medium: Mermaid preview executes a third-party client-side renderer inside the webview. Keep Mermaid upgraded, keep `securityLevel: "strict"`, and add CSP hardening before public release.
 - High: The webview enables scripts but does not yet use a Content Security Policy. Add a strict CSP with nonces and move inline boot scripts out of `src/webview/index.html`.
 - Medium: Host and webview message handling relies on TypeScript casts. Add runtime validation for message `type`, request IDs, string fields, base64 payload size, and attachment inputs.
 - Medium: Attachment upload accepts webview-provided base64/name/MIME values. Restrict uploads to supported image MIME/extensions and add a maximum file size.

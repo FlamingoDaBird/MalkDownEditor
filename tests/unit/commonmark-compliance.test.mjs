@@ -149,6 +149,19 @@ test("showcase fixture keeps GFM table rows structurally aligned", async () => {
   }
 });
 
+test("showcase documents Mermaid as a plain fenced code block", async () => {
+  const documents = await Promise.all([
+    readProjectFile("docs", "SHOWCASE.md"),
+    readProjectFile("tests", "fixtures", "test.md"),
+  ]);
+
+  for (const markdown of documents) {
+    assert.match(markdown, /```mermaid\r?\nflowchart TD/);
+    assert.doesNotMatch(markdown, /<mermaid[\s>]/i);
+    assert.doesNotMatch(markdown, /data-mermaid=/i);
+  }
+});
+
 test("default generated text settings stay plain Markdown", async () => {
   const manifest = JSON.parse(await readProjectFile("package.json"));
   const properties = configurationProperties(manifest);

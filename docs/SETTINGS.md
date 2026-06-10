@@ -93,7 +93,7 @@ Cleanup dialog actions:
 
 Shows the recoverable `Move to Trash` action.
 
-Default: `true`
+Default: `false`
 
 #### `mdEditor.attachments.trash.folderName`
 

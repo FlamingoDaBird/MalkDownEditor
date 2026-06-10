@@ -313,7 +313,7 @@
       "label": "Always Show Language",
       "shortDescription": "Keeps the code block language label visible.",
       "helpText": "When disabled, the language label can be hidden until hover by the editor styling.",
-      "default": true,
+      "default": false,
       "scope": "resource",
       "relatedUiLabels": [
         "Code block language"
@@ -328,7 +328,7 @@
       "label": "Always Show Copy Button",
       "shortDescription": "Keeps the code block Copy button visible.",
       "helpText": "When disabled, the Copy button can be hidden until hover by the editor styling.",
-      "default": true,
+      "default": false,
       "scope": "resource",
       "relatedUiLabels": [
         "Copy"

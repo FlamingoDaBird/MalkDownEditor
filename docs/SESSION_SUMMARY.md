@@ -91,7 +91,7 @@ Temporary startup debug logs were removed from the extension host and webview. R
 - Floating selection toolbar now includes a Quote button that wraps selected block text in a Markdown blockquote.
 - Floating selection toolbar now includes a Code Block button that toggles selected block text between paragraph and fenced code block.
 - The sigma/sum toolbar symbol is the inline math/LaTeX toggle.
-- Code blocks now have `mdEditor.codeBlocks.alwaysShowLanguage` and `mdEditor.codeBlocks.alwaysShowCopyButton` settings, both defaulting to `true`.
+- Code blocks now have `mdEditor.codeBlocks.alwaysShowLanguage` and `mdEditor.codeBlocks.alwaysShowCopyButton` settings, both defaulting to hover-only (`false`).
 - Inline code now renders as a framed grey inline pill instead of only orange text. The orange came from Milkdown Crepe's inline-code theme variable, and the fix targets both `.ProseMirror code` and `.prose code`.
 - Crepe's `+` block handle and slash menu are forced to fixed viewport positioning because VS Code webviews scroll inside `#editor`; otherwise the menu can open off-screen after scrolling.
 - Fixed a runtime slash/block menu crash caused by chaining `addGroup` after `addItem`; Milkdown's group builder returns the current group from `addItem`, not the root builder. Custom Tables and Date & Time menu groups are now built as separate group variables.
@@ -113,7 +113,7 @@ Temporary startup debug logs were removed from the extension host and webview. R
 - The floating toolbar is the small popup shown when selecting text.
 - The floating toolbar now has both Quote and Code Block block-level actions.
 - Code Block toggles selected/current block text between a normal paragraph and a fenced code block.
-- Code block language label and Copy button visibility are controlled by live `mdEditor.codeBlocks.*` settings and default to visible.
+- Code block language label and Copy button visibility are controlled by live `mdEditor.codeBlocks.*` settings and default to hover-only.
 - Read-only title action now uses an open padlock while editable and a closed padlock while read-only.
 
 ### Read-Only Mode

@@ -304,13 +304,13 @@
         "properties": {
           "mdEditor.codeBlocks.alwaysShowLanguage": {
             "type": "boolean",
-            "default": true,
+            "default": false,
             "order": 10,
             "markdownDescription": "Always show the selected language label on code blocks instead of only showing it on hover."
           },
           "mdEditor.codeBlocks.alwaysShowCopyButton": {
             "type": "boolean",
-            "default": true,
+            "default": false,
             "order": 20,
             "markdownDescription": "Always show the code block Copy button instead of only showing it on hover."
           }
@@ -484,6 +484,7 @@
     "@types/node": "^22.15.3",
     "@types/vscode": "^1.85.0",
     "esbuild": "^0.25.3",
+    "mermaid": "^11.15.0",
     "typescript": "^5.8.3"
   }
 }

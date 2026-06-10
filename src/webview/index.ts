@@ -1,4 +1,7 @@
 import { Crepe, CrepeFeature } from "@milkdown/crepe";
+import { LanguageDescription } from "@codemirror/language";
+import { languages as codeMirrorLanguages } from "@codemirror/language-data";
+import { markdown } from "@codemirror/lang-markdown";
 import { commandsCtx, editorViewCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { DOMSerializer } from "@milkdown/kit/prose/model";
@@ -28,10 +31,12 @@ import {
   wrapInBlockTypeCommand,
 } from "@milkdown/kit/preset/commonmark";
 import { insert } from "@milkdown/kit/utils";
+import mermaid from "mermaid";
 // Load Milkdown theme CSS
 import "./styles/milkdown/style.css";
 import "./styles/milkdown/reset.css";
 import "./styles/milkdown/prosemirror.css";
+import "./styles/milkdown/mermaid.css";
 import "./styles/editor.css";
 import { WebviewBridge } from "./bridge";
 import type {
@@ -64,8 +69,11 @@ let tableUiUpdateAnimationFrame: number | undefined;
 let tableSlashMenuUpdateAnimationFrame: number | undefined;
 let tableSlashMenuActiveIndex = 0;
 let tableSlashMenuVisibleItems: TableActionItem[] = [];
+let mermaidRenderSequence = 0;
+let mermaidInitializedTheme: string | undefined;
 let imageDeleteControlsCleanup: (() => void) | undefined;
 let imageLightboxCleanup: (() => void) | undefined;
+let pendingCopyFeedbackControl: HTMLElement | undefined;
 let activeEditorDialog:
   | { requestId: string; cancelButtonId?: string; close: (buttonId?: string) => void }
   | undefined;
@@ -90,8 +98,8 @@ let tableSettings: TableSettings = {
   insertBehavior: "useDefaultSize",
 };
 let codeBlockSettings: CodeBlockSettings = {
-  alwaysShowLanguage: true,
-  alwaysShowCopyButton: true,
+  alwaysShowLanguage: false,
+  alwaysShowCopyButton: false,
 };
 
 interface PendingRequest {
@@ -105,6 +113,20 @@ const pendingAttachmentSrcResolutions = new Map<string, PendingRequest>();
 const pendingAttachmentPathCopies = new Map<string, PendingRequest>();
 const ATTACHMENT_SRC_FALLBACK_TIMEOUT_MS = 3000;
 const MILKDOWN_STARTUP_TIMEOUT_MS = 15000;
+const MERMAID_RENDER_DEBOUNCE_MS = 650;
+const MERMAID_RENDER_TIMEOUT_MS = 5000;
+const MERMAID_SVG_CACHE_LIMIT = 30;
+const MERMAID_DEFAULT_ZOOM = 1;
+const MERMAID_MIN_ZOOM = 0.5;
+const MERMAID_MAX_ZOOM = 2.5;
+const MERMAID_ZOOM_STEP = 0.15;
+const MERMAID_DOCS_URL = "https://mermaid.ai/open-source/syntax/flowchart.html";
+const COPY_SUCCESS_FEEDBACK_MS = 4000;
+const mermaidSvgCache = new Map<string, string>();
+const mermaidPreviewSessions = new WeakMap<
+  (value: HTMLElement) => void,
+  { latestRenderToken: number; pendingTimer?: number }
+>();
 bootLog("module-start", "Webview module started", {
   readyState: document.readyState,
   hidden: document.hidden,
@@ -519,6 +541,415 @@ function applyCodeBlockSettings() {
     "md-code-block-copy-visible",
     codeBlockSettings.alwaysShowCopyButton,
   );
+}
+
+function currentMermaidTheme(): "default" | "dark" | "neutral" {
+  if (document.documentElement.classList.contains("theme-light")) {
+    return "default";
+  }
+
+  if (document.documentElement.classList.contains("theme-high-contrast")) {
+    return "neutral";
+  }
+
+  return "dark";
+}
+
+function ensureMermaidConfigured(): void {
+  const theme = currentMermaidTheme();
+  if (mermaidInitializedTheme === theme) return;
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme,
+    securityLevel: "strict",
+    suppressErrorRendering: true,
+    deterministicIds: true,
+    fontFamily: "inherit",
+    flowchart: {
+      htmlLabels: false,
+      useMaxWidth: true,
+    },
+  });
+  mermaidInitializedTheme = theme;
+}
+
+const mermaidLanguageDescription = LanguageDescription.of({
+  name: "Mermaid",
+  alias: ["mermaid"],
+  extensions: ["mmd", "mermaid"],
+  support: markdown(),
+});
+
+const codeBlockLanguages = [
+  ...codeMirrorLanguages,
+  mermaidLanguageDescription,
+];
+
+function createMermaidPreviewShell(): {
+  container: HTMLElement;
+  status: HTMLElement;
+  toolbar: HTMLElement;
+  surface: HTMLElement;
+  debug: HTMLElement;
+  bindDiagramHost: (host: HTMLElement | undefined) => void;
+} {
+  const container = document.createElement("section");
+  container.className = "md-mermaid-preview";
+  container.setAttribute("data-mermaid-preview", "true");
+  container.setAttribute("aria-label", "Mermaid diagram preview");
+
+  const status = document.createElement("div");
+  status.className = "md-mermaid-preview__status";
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "md-mermaid-preview__toolbar";
+
+  const zoomGroup = document.createElement("div");
+  zoomGroup.className = "md-mermaid-preview__toolbar-group";
+
+  const docsGroup = document.createElement("div");
+  docsGroup.className = "md-mermaid-preview__toolbar-group";
+
+  const surface = document.createElement("div");
+  surface.className = "md-mermaid-preview__surface";
+
+  const debug = document.createElement("pre");
+  debug.className = "md-mermaid-preview__debug";
+  debug.setAttribute("tabindex", "0");
+
+  let zoom = MERMAID_DEFAULT_ZOOM;
+  let panEnabled = false;
+  let diagramHost: HTMLElement | undefined;
+  let dragOriginX = 0;
+  let dragOriginY = 0;
+  let dragScrollLeft = 0;
+  let dragScrollTop = 0;
+  let dragging = false;
+
+  const makeToolbarButton = (
+    label: string,
+    title: string,
+    onClick: () => void,
+  ): HTMLButtonElement => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "md-mermaid-preview__button";
+    button.textContent = label;
+    button.title = title;
+    button.setAttribute("aria-label", title);
+    button.addEventListener("click", onClick);
+    return button;
+  };
+
+  const zoomLabel = document.createElement("span");
+  zoomLabel.className = "md-mermaid-preview__zoom-label";
+
+  const syncDiagramViewport = () => {
+    zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+    zoomOutButton.disabled = zoom <= MERMAID_MIN_ZOOM;
+    zoomInButton.disabled = zoom >= MERMAID_MAX_ZOOM;
+    panButton.setAttribute("aria-pressed", panEnabled ? "true" : "false");
+    panButton.textContent = panEnabled ? "Pan On" : "Pan";
+    surface.classList.toggle("md-mermaid-preview__surface--pan-enabled", panEnabled);
+
+    if (diagramHost) {
+      diagramHost.style.width = `${Math.round(zoom * 100)}%`;
+      diagramHost.style.maxWidth = "none";
+    }
+  };
+
+  const zoomOutButton = makeToolbarButton("−", "Zoom out", () => {
+    zoom = Math.max(MERMAID_MIN_ZOOM, zoom - MERMAID_ZOOM_STEP);
+    syncDiagramViewport();
+  });
+  const zoomInButton = makeToolbarButton("+", "Zoom in", () => {
+    zoom = Math.min(MERMAID_MAX_ZOOM, zoom + MERMAID_ZOOM_STEP);
+    syncDiagramViewport();
+  });
+  const resetButton = makeToolbarButton("100%", "Reset Mermaid zoom", () => {
+    zoom = MERMAID_DEFAULT_ZOOM;
+    syncDiagramViewport();
+  });
+  const panButton = makeToolbarButton("Pan", "Toggle drag-to-pan", () => {
+    panEnabled = !panEnabled;
+    syncDiagramViewport();
+  });
+
+  const docsLink = document.createElement("a");
+  docsLink.className = "md-mermaid-preview__link";
+  docsLink.href = MERMAID_DOCS_URL;
+  docsLink.target = "_blank";
+  docsLink.rel = "noreferrer noopener";
+  docsLink.textContent = "Docs";
+  docsLink.title = "Open Mermaid flowchart syntax documentation";
+
+  zoomGroup.append(zoomOutButton, zoomLabel, zoomInButton, resetButton, panButton);
+  docsGroup.appendChild(docsLink);
+  toolbar.append(zoomGroup, docsGroup);
+
+  surface.addEventListener("mousedown", (event) => {
+    if (!panEnabled || event.button !== 0 || !diagramHost) return;
+    dragging = true;
+    dragOriginX = event.clientX;
+    dragOriginY = event.clientY;
+    dragScrollLeft = surface.scrollLeft;
+    dragScrollTop = surface.scrollTop;
+    surface.classList.add("md-mermaid-preview__surface--dragging");
+    event.preventDefault();
+  });
+  surface.addEventListener("mousemove", (event) => {
+    if (!dragging) return;
+    surface.scrollLeft = dragScrollLeft - (event.clientX - dragOriginX);
+    surface.scrollTop = dragScrollTop - (event.clientY - dragOriginY);
+  });
+
+  const stopDragging = () => {
+    dragging = false;
+    surface.classList.remove("md-mermaid-preview__surface--dragging");
+  };
+  surface.addEventListener("mouseup", stopDragging);
+  surface.addEventListener("mouseleave", stopDragging);
+
+  const bindDiagramHost = (host: HTMLElement | undefined) => {
+    diagramHost = host;
+    syncDiagramViewport();
+  };
+
+  container.append(status, toolbar, surface, debug);
+  syncDiagramViewport();
+
+  return { container, status, toolbar, surface, debug, bindDiagramHost };
+}
+
+function parseMermaidSvg(svgMarkup: string): SVGSVGElement {
+  const parsed = new DOMParser().parseFromString(svgMarkup, "image/svg+xml");
+  const parserError = parsed.querySelector("parsererror");
+  if (parserError) {
+    throw new Error(parserError.textContent?.trim() || "Mermaid returned invalid SVG.");
+  }
+
+  const svgElement = parsed.querySelector("svg");
+  if (!svgElement) {
+    throw new Error("Mermaid finished without producing an SVG.");
+  }
+
+  return document.importNode(svgElement, true);
+}
+
+function mermaidCacheKey(code: string): string {
+  return `${currentMermaidTheme()}\u0000${code}`;
+}
+
+function getMermaidPreviewSession(
+  applyPreview: (value: HTMLElement) => void,
+): { latestRenderToken: number; pendingTimer?: number } {
+  let session = mermaidPreviewSessions.get(applyPreview);
+  if (!session) {
+    session = { latestRenderToken: 0 };
+    mermaidPreviewSessions.set(applyPreview, session);
+  }
+  return session;
+}
+
+function rememberMermaidSvg(cacheKey: string, svg: string): void {
+  mermaidSvgCache.set(cacheKey, svg);
+  while (mermaidSvgCache.size > MERMAID_SVG_CACHE_LIMIT) {
+    const oldestKey = mermaidSvgCache.keys().next().value;
+    if (!oldestKey) break;
+    mermaidSvgCache.delete(oldestKey);
+  }
+}
+
+function applyMermaidSvgPreview(options: {
+  svg: string;
+  normalizedCode: string;
+  renderToken: string;
+  container: HTMLElement;
+  status: HTMLElement;
+  surface: HTMLElement;
+  debug: HTMLElement;
+  bindDiagramHost: (host: HTMLElement | undefined) => void;
+  cacheState: "hit" | "miss";
+}): void {
+  const {
+    svg,
+    normalizedCode,
+    renderToken,
+    container,
+    status,
+    surface,
+    debug,
+    bindDiagramHost,
+    cacheState,
+  } = options;
+  const svgElement = parseMermaidSvg(svg);
+  container.dataset.mermaidRenderToken = renderToken;
+  container.classList.add("md-mermaid-preview--ready");
+  container.removeAttribute("data-has-error");
+  container.setAttribute("data-mermaid-state", "ready");
+
+  svgElement.style.setProperty("max-width", "100%");
+  svgElement.style.setProperty("height", "auto");
+  svgElement.setAttribute("role", "img");
+  svgElement.setAttribute("aria-label", "Rendered Mermaid diagram");
+
+  const host = document.createElement("div");
+  host.className = "md-mermaid-preview__diagram";
+  host.appendChild(svgElement);
+  surface.replaceChildren(host);
+  bindDiagramHost(host);
+
+  debug.textContent = [
+    "Mermaid debug",
+    `chars: ${normalizedCode.length}`,
+    "mode: mermaid.render",
+    `state: ready (${cacheState})`,
+    `svg chars: ${svg.length}`,
+    `contains foreignObject: ${svg.includes("foreignObject")}`,
+    "svg found: yes",
+    `viewBox: ${svgElement.getAttribute("viewBox") ?? "(none)"}`,
+    `width attr: ${svgElement.getAttribute("width") ?? "(none)"}`,
+    `height attr: ${svgElement.getAttribute("height") ?? "(none)"}`,
+    `child count: ${svgElement.childElementCount}`,
+    `g nodes: ${svgElement.querySelectorAll("g").length}`,
+    `path nodes: ${svgElement.querySelectorAll("path").length}`,
+    `rect nodes: ${svgElement.querySelectorAll("rect").length}`,
+    `text nodes: ${svgElement.querySelectorAll("text").length}`,
+    `foreignObject nodes: ${svgElement.querySelectorAll("foreignObject").length}`,
+    `bbox: ${Math.round(svgElement.getBoundingClientRect().width)}x${Math.round(svgElement.getBoundingClientRect().height)}`,
+  ].join("\n");
+  status.textContent = "";
+}
+
+function renderMermaidPreview(content: string, applyPreview: (value: HTMLElement) => void): void {
+  const normalizedCode = content.trim();
+  const renderToken = String(++mermaidRenderSequence);
+  const renderId = `md-mermaid-${renderToken}`;
+  const session = getMermaidPreviewSession(applyPreview);
+  const { container, status, surface, debug, bindDiagramHost } = createMermaidPreviewShell();
+
+  if (!normalizedCode) {
+    status.textContent = "Mermaid diagram is empty.";
+    debug.textContent = [
+      "Mermaid debug",
+      "chars: 0",
+      "state: empty",
+    ].join("\n");
+    applyPreview(container);
+    return;
+  }
+  ensureMermaidConfigured();
+
+  const cacheKey = mermaidCacheKey(normalizedCode);
+  const cachedSvg = mermaidSvgCache.get(cacheKey);
+  if (cachedSvg) {
+    applyMermaidSvgPreview({
+      svg: cachedSvg,
+      normalizedCode,
+      renderToken,
+      container,
+      status,
+      surface,
+      debug,
+      bindDiagramHost,
+      cacheState: "hit",
+    });
+    applyPreview(container);
+    return;
+  }
+
+  session.latestRenderToken = Number(renderToken);
+  if (session.pendingTimer !== undefined) {
+    window.clearTimeout(session.pendingTimer);
+    session.pendingTimer = undefined;
+  }
+
+  status.textContent = "Waiting for typing to pause before rendering Mermaid diagram...";
+  container.setAttribute("data-mermaid-state", "scheduled");
+  surface.replaceChildren();
+  debug.textContent = [
+    "Mermaid debug",
+    `chars: ${normalizedCode.length}`,
+    `lines: ${normalizedCode.split(/\r?\n/).length}`,
+    "state: scheduled",
+    "mode: mermaid.render",
+    `debounce ms: ${MERMAID_RENDER_DEBOUNCE_MS}`,
+  ].join("\n");
+  applyPreview(container);
+
+  session.pendingTimer = window.setTimeout(() => {
+    if (Number(renderToken) !== session.latestRenderToken) return;
+
+    status.textContent = "Rendering Mermaid diagram...";
+    container.setAttribute("data-mermaid-state", "rendering");
+    debug.textContent = [
+      "Mermaid debug",
+      `chars: ${normalizedCode.length}`,
+      `lines: ${normalizedCode.split(/\r?\n/).length}`,
+      "state: rendering",
+      "mode: mermaid.render",
+    ].join("\n");
+    applyPreview(container);
+
+    const sandbox = document.createElement("div");
+    sandbox.className = "md-mermaid-render-sandbox";
+    sandbox.setAttribute("aria-hidden", "true");
+    sandbox.style.position = "fixed";
+    sandbox.style.left = "-10000px";
+    sandbox.style.top = "0";
+    sandbox.style.width = "800px";
+    sandbox.style.pointerEvents = "none";
+    sandbox.style.opacity = "0";
+    document.body.appendChild(sandbox);
+
+    void withTimeout(
+      mermaid.render(renderId, normalizedCode, sandbox),
+      MERMAID_RENDER_TIMEOUT_MS,
+      "Mermaid render timed out.",
+    )
+      .then(({ svg }) => {
+        if (Number(renderToken) !== session.latestRenderToken) return;
+        rememberMermaidSvg(cacheKey, svg);
+        applyMermaidSvgPreview({
+          svg,
+          normalizedCode,
+          renderToken,
+          container,
+          status,
+          surface,
+          debug,
+          bindDiagramHost,
+          cacheState: "miss",
+        });
+        applyPreview(container);
+      })
+      .catch((error) => {
+        if (Number(renderToken) !== session.latestRenderToken) return;
+        const details = getErrorDetails(error);
+        const errorMessage = document.createElement("pre");
+        errorMessage.className = "md-mermaid-preview__error";
+        errorMessage.textContent = details.message;
+        surface.replaceChildren(errorMessage);
+        status.textContent = "Mermaid could not render this fenced code block.";
+        debug.textContent = [
+          "Mermaid debug",
+          `chars: ${normalizedCode.length}`,
+          "mode: mermaid.render",
+          "state: error",
+          `message: ${details.message}`,
+        ].join("\n");
+        container.setAttribute("data-has-error", "true");
+        container.setAttribute("data-mermaid-state", "error");
+        applyPreview(container);
+      })
+      .finally(() => {
+        session.pendingTimer = undefined;
+        sandbox.remove();
+      });
+  }, MERMAID_RENDER_DEBOUNCE_MS);
 }
 
 function ensureReadOnlyBadge(): HTMLElement {
@@ -1138,8 +1569,11 @@ bridge.onMessage((message) => {
       break;
     case "attachmentPathCopied":
       if (msg.ok) {
+        showCopyControlSuccess(pendingCopyFeedbackControl);
+        pendingCopyFeedbackControl = undefined;
         showEditorToast("Image file path copied", "success");
       } else if (msg.message) {
+        pendingCopyFeedbackControl = undefined;
         showEditorToast(`Copy failed: ${msg.message}`, "error");
       }
       settlePendingRequest(
@@ -2827,6 +3261,34 @@ async function mountEditor(markdown: string): Promise<void> {
       [CrepeFeature.Cursor]: true,
     },
     featureConfigs: {
+      [CrepeFeature.CodeMirror]: {
+        languages: codeBlockLanguages,
+        onCopy: () => {
+          const activeElement = document.activeElement;
+          if (
+            activeElement instanceof HTMLButtonElement &&
+            activeElement.classList.contains("copy-button")
+          ) {
+            showCopyControlSuccess(activeElement);
+          }
+        },
+        renderLanguage: (language, selected) => {
+          const normalized = language.trim().toLowerCase();
+          if (normalized === "mermaid") {
+            return selected ? "Mermaid" : "Mermaid";
+          }
+          return language;
+        },
+        renderPreview: (language, content, applyPreview) => {
+          if (language.trim().toLowerCase() !== "mermaid") {
+            return null;
+          }
+
+          renderMermaidPreview(content, applyPreview);
+          return undefined;
+        },
+        previewLabel: "Diagram Preview",
+      },
       [CrepeFeature.Cursor]: {
         width: 4,
         color: false,
@@ -3013,6 +3475,28 @@ function showEditorToast(
       container.remove();
     }
   }, 2600);
+}
+
+function showCopyControlSuccess(
+  control: HTMLElement | null | undefined,
+  label = "Copied",
+): void {
+  if (!control) return;
+
+  const originalHtml = control.dataset.mdCopyOriginalHtml ?? control.innerHTML;
+  const token = createRequestId("copy-feedback");
+  control.dataset.mdCopyOriginalHtml = originalHtml;
+  control.dataset.mdCopyFeedbackToken = token;
+  control.classList.add("md-copy-feedback--success");
+  control.setAttribute("data-copy-feedback", "success");
+  control.innerHTML = `<span class="md-copy-feedback__check" aria-hidden="true">✓</span><span>${label}</span>`;
+
+  window.setTimeout(() => {
+    if (control.dataset.mdCopyFeedbackToken !== token) return;
+    control.innerHTML = originalHtml;
+    control.classList.remove("md-copy-feedback--success");
+    control.removeAttribute("data-copy-feedback");
+  }, COPY_SUCCESS_FEEDBACK_MS);
 }
 
 function ensureToastContainer(): HTMLElement {
@@ -3665,7 +4149,10 @@ function installImageActionControls(root: HTMLElement): void {
 
     if (button.classList.contains("md-image-copy-attachment-button")) {
       void copyAttachmentImage(imageBlock).then(
-        () => showEditorToast("Attachment image copied", "success"),
+        () => {
+          showCopyControlSuccess(button);
+          showEditorToast("Attachment image copied", "success");
+        },
       ).catch((error) => {
         const message = error instanceof Error ? error.message : String(error);
         showEditorToast(`Copy failed: ${message}`, "error");
@@ -3680,7 +4167,9 @@ function installImageActionControls(root: HTMLElement): void {
         return;
       }
 
+      pendingCopyFeedbackControl = button;
       void copyAttachmentPath(info.src).catch((error) => {
+        pendingCopyFeedbackControl = undefined;
         const message = error instanceof Error ? error.message : String(error);
         showEditorToast(`Copy failed: ${message}`, "error");
       });

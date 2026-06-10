@@ -32,8 +32,8 @@ export const DEFAULT_TABLE_SETTINGS: TableSettings = {
 };
 
 export const DEFAULT_CODE_BLOCK_SETTINGS: CodeBlockSettings = {
-  alwaysShowLanguage: true,
-  alwaysShowCopyButton: true,
+  alwaysShowLanguage: false,
+  alwaysShowCopyButton: false,
 };
 
 export function themeClassForSetting(theme: string | undefined): string {

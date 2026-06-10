@@ -20,6 +20,7 @@ The smoke fixture should keep covering:
 - emphasis and strong text
 - inline code
 - fenced code blocks
+- GitHub-style `mermaid` fenced code blocks that stay plain Markdown source
 - blockquotes
 - links
 - local images
@@ -31,6 +32,7 @@ The smoke fixture should keep covering:
 - CommonMark does not define tables; table behavior follows GitHub Flavored Markdown expectations.
 - Nested tables, table cell colors, arbitrary block content inside table cells, and custom cell styling are intentionally outside the first table scope.
 - Collapsible sections will likely use portable raw HTML `<details>` blocks first, because CommonMark does not define native collapsible blocks.
+- Mermaid diagrams are treated as normal fenced code blocks with the `mermaid` info string. The editor may render a preview, but the saved Markdown stays a portable fence.
 - Raw Markdown mode can always edit any generated comments or managed regions because VS Code's plain text editor is outside the WYSIWYG guardrails.
 
 ## Test Expectations

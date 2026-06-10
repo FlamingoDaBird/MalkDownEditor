@@ -167,6 +167,15 @@ const message = greet("World");
 console.log(message);
 ```
 
+Mermaid diagrams stay stored as plain fenced code blocks and should render an in-editor preview below the source:
+
+```mermaid
+flowchart TD
+    Start[Open Markdown] --> Edit[Edit in MalkDown]
+    Edit --> Preview[Render Mermaid preview]
+    Preview --> Save[Save plain fenced Markdown]
+```
+
 ## 10. Attachments
 
 Drop or upload an image in MalkDown Editor.

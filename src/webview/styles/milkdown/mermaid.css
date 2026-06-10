@@ -1,0 +1,136 @@
+.milkdown .milkdown-code-block.md-mermaid-code-block {
+  border: 1px solid color-mix(in srgb, var(--crepe-color-primary), transparent 72%);
+  border-radius: 12px;
+}
+
+.milkdown .md-mermaid-preview {
+  margin-top: 12px;
+}
+
+.milkdown .md-mermaid-preview__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+  flex-wrap: wrap;
+}
+
+.milkdown .md-mermaid-preview__toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.milkdown .md-mermaid-preview__button,
+.milkdown .md-mermaid-preview__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--crepe-color-outline), transparent 42%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--crepe-color-surface), white 3%);
+  color: var(--crepe-color-on-surface);
+  font-family: var(--crepe-font-default);
+  font-size: 12px;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.milkdown .md-mermaid-preview__button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.milkdown .md-mermaid-preview__zoom-label {
+  min-width: 48px;
+  text-align: center;
+  font-family: var(--crepe-font-code, ui-monospace, monospace);
+  font-size: 12px;
+  color: color-mix(in srgb, var(--crepe-color-on-surface), transparent 18%);
+}
+
+.milkdown .md-mermaid-preview__status {
+  margin: 0 0 10px;
+  font-family: var(--crepe-font-default);
+  font-size: 12px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--crepe-color-on-surface), transparent 28%);
+}
+
+.milkdown .md-mermaid-preview__surface {
+  overflow-x: auto;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--crepe-color-background), white 4%);
+  border: 1px solid color-mix(in srgb, var(--crepe-color-outline), transparent 68%);
+  padding: 14px;
+  cursor: default;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.milkdown .md-mermaid-preview__surface--pan-enabled {
+  cursor: grab;
+}
+
+.milkdown .md-mermaid-preview__surface--dragging {
+  cursor: grabbing;
+}
+
+.milkdown .md-mermaid-preview__diagram {
+  min-width: 320px;
+}
+
+.milkdown .md-mermaid-preview__diagram svg {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  margin: 0 auto;
+}
+
+.milkdown .md-mermaid-preview[data-has-error='true'] .md-mermaid-preview__surface {
+  border-color: color-mix(in srgb, var(--crepe-color-error, #d13438), transparent 45%);
+  background: color-mix(in srgb, var(--crepe-color-error, #d13438), transparent 94%);
+}
+
+.milkdown .md-mermaid-preview__error {
+  margin: 0;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--crepe-font-code, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--crepe-color-error, #d13438);
+}
+
+.milkdown .md-mermaid-preview__debug {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: color-mix(in srgb, var(--crepe-color-surface), black 10%);
+  border: 1px solid color-mix(in srgb, var(--crepe-color-outline), transparent 70%);
+  color: color-mix(in srgb, var(--crepe-color-on-surface), transparent 10%);
+  font-family: var(--crepe-font-code, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: left;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+.milkdown .md-mermaid-preview__debug::selection,
+.milkdown .md-mermaid-preview__status::selection,
+.milkdown .md-mermaid-preview__surface *::selection {
+  background: var(--crepe-color-selected);
+}

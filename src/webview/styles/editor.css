@@ -361,6 +361,19 @@ body {
   opacity: 1;
 }
 
+.milkdown .copy-button.md-copy-feedback--success,
+.milkdown .operation-item.md-copy-feedback--success {
+  color: #2e7d32 !important;
+  border-color: color-mix(in srgb, #2e7d32, transparent 40%) !important;
+  background: color-mix(in srgb, #2e7d32, transparent 88%) !important;
+}
+
+.md-copy-feedback__check {
+  display: inline-block;
+  margin-right: 6px;
+  font-weight: 700;
+}
+
 @keyframes md-editor-toast-enter {
   from {
     opacity: 0;
